@@ -1,0 +1,29 @@
+[project]
+name = "DocLLM"
+version = "0.1.0"
+requires-python = ">=3.11,<3.12"
+description = "DocLLM implementation"
+dependencies = [
+    # torch,
+    # transformers,
+    # pydantic,
+]
+
+[project.optional-dependencies]
+linting = ["pre-commit"]
+tests = ["pytest"]
+
+[project.scripts]
+docllm = "docllm.__main__:main"
+
+[build-system]
+requires = ["setuptools >= 61.0.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+target-version = ["py311"]
+line-length = 120
+
+[tool.isort]
+profile = "black"
+line_length = 120
