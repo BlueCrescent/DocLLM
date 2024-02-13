@@ -87,23 +87,19 @@ class DocLLMAttention(LlamaAttention):
                 f" {attn_weights_tt.size()=} {attn_weights_ts.size()=} {attn_weights_st.size()=} {attn_weights_ss.size()=}"
             )
 
-        if attention_mask is not None:
-            if attention_mask.size() != (bsz, 1, q_len, kv_seq_len):
-                raise ValueError(
-                    f"Attention mask should be of size {(bsz, 1, q_len, kv_seq_len)}, but is {attention_mask.size()}"
-                )
-            # FIXME: is this correct?
-            attn_weights_tt = attn_weights_tt + attention_mask
-            attn_weights_ts = attn_weights_ts + attention_mask
-            attn_weights_st = attn_weights_st + attention_mask
-            attn_weights_ss = attn_weights_ss + attention_mask
-
         attn_weights = (
             attn_weights_tt
             + self._lambda_ts * attn_weights_ts
             + self._lambda_st * attn_weights_st
             + self._lambda_ss * attn_weights_ss
         )
+
+        if attention_mask is not None:
+            if attention_mask.size() != (bsz, 1, q_len, kv_seq_len):
+                raise ValueError(
+                    f"Attention mask should be of size {(bsz, 1, q_len, kv_seq_len)}, but is {attention_mask.size()}"
+                )
+            attn_weights = attn_weights + attention_mask
 
         # upcast attention to fp32
         attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(query_states.dtype)
