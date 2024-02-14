@@ -52,7 +52,7 @@ class DocLLMModelOutputWithPast(ModelOutput):
             heads.
     """
 
-    last_hidden_state: torch.FloatTensor = None
+    last_hidden_state: Optional[torch.FloatTensor] = None
     past_key_values: Optional[Cache] = None
     spatial_past_key_value: Optional[Cache] = None
     hidden_states: Optional[Tuple[torch.FloatTensor]] = None
