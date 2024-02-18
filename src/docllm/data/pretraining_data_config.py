@@ -17,6 +17,9 @@ NumMaskedBlocksType = PositiveInt | ZeroOneFloat | Interval
 
 class DocLLMPreTrainDataConfig(BaseModel):
     batch_size: PositiveInt
+    drop_last_batch_if_not_full: bool = False
+    shuffle: bool = True
+    use_sharding_filter: bool = True
     max_seq_len: PositiveInt
 
     # This can encode either an absolute or relative count.
@@ -33,6 +36,7 @@ class DocLLMPreTrainDataConfig(BaseModel):
     block_start_bbox_token: Optional[TokenRect] = None
     bos_text_token: Optional[int]
     bos_bbox_token: Optional[TokenRect] = None
+    padding_value: float = 0.0
 
     directory: str | Sequence[str]
 

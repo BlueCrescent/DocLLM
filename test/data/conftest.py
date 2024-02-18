@@ -1,3 +1,4 @@
+import math
 import random
 from tempfile import TemporaryDirectory
 from typing import Iterable, List, Tuple
@@ -45,8 +46,10 @@ def num_masked_blocks(request) -> NumMaskedBlocksType:
 
 
 @pytest.fixture
-def batch_size() -> int:
-    return 1
+def batch_size(request) -> int:
+    if not hasattr(request, "param") or request.param is None:
+        return 1
+    return request.param
 
 
 @pytest.fixture
@@ -68,7 +71,7 @@ def max_sequence_length(
     if isinstance(num_masked_blocks, int):
         max_masked_blocks = num_masked_blocks
     elif isinstance(num_masked_blocks, float):
-        max_masked_blocks = int(num_masked_blocks * range_block_size[1])
+        max_masked_blocks = math.ceil(num_masked_blocks * range_block_size[1])
     return range_block_size[1] * num_blocks + (range_block_size[1] + 1) * max_masked_blocks
 
 
