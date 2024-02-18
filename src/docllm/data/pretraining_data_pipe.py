@@ -17,16 +17,17 @@ class DocLLMTrainDataPipe(IterDataPipe):
         self._mask_text_token = torch.tensor([self._config.mask_text_token])
         self._mask_bbox_token = torch.tensor([self._config.mask_bbox_token])
         self._block_start_text_token = torch.tensor([self._config.block_start_text_token])
+        self._block_end_text_token = torch.tensor([self._config.block_end_text_token])
         self._bos_text_token = [torch.tensor([self._config.bos_text_token])] if self._config.bos_text_token else []
         self._bos_bbox_token = [torch.tensor([self._config.bos_bbox_token])] if self._config.bos_bbox_token else []
 
-    def __iter__(self) -> Iterable[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
+    def __iter__(self) -> Iterable[Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.LongTensor]]:
         for input_tensors, bbox_tensors in self._source_datapipe:
             yield from self._try_build_inputs(input_tensors, bbox_tensors)
 
     def _try_build_inputs(
         self, input_tensors: List[torch.LongTensor], bbox_tensors: List[torch.FloatTensor]
-    ) -> Iterable[Tuple[torch.LongTensor, torch.FloatTensor, torch.BoolTensor]]:
+    ) -> Iterable[Tuple[torch.LongTensor, torch.FloatTensor, torch.BoolTensor, torch.LongTensor]]:
         try:
             num_blocks = len(input_tensors)
             num_masks = self._get_valid_nun_masks(num_blocks)
@@ -54,8 +55,8 @@ class DocLLMTrainDataPipe(IterDataPipe):
 
     def _create_masked_input(
         self, input_tensors: List[torch.LongTensor], bbox_tensors: List[torch.FloatTensor], mask_indices: List[int]
-    ) -> Tuple[torch.LongTensor, torch.FloatTensor, torch.BoolTensor]:
-        input_tensors, bbox_tensors, target_tokens = self._extract_masked_tokens(
+    ) -> Tuple[torch.LongTensor, torch.FloatTensor, torch.BoolTensor, torch.LongTensor]:
+        input_tensors, bbox_tensors, target_tokens, label_tensors = self._extract_masked_tokens(
             input_tensors, bbox_tensors, mask_indices
         )
         num_target_tokens = sum(tensor.shape[0] for tensor in target_tokens)
@@ -63,30 +64,34 @@ class DocLLMTrainDataPipe(IterDataPipe):
         target_bbox_tokens = [self._mask_bbox_token] * num_target_tokens
         spatial_inputs = torch.cat(self._bos_bbox_token + bbox_tensors + target_bbox_tokens)
         loss_mask = torch.zeros_like(text_inputs, dtype=torch.bool)
-        # The first block start token [S] is not used for loss computation.
-        loss_mask[-(num_target_tokens - 1) :] = 1
-        return self._truncate_to_max_seq_len(text_inputs, spatial_inputs, loss_mask, num_target_tokens)
+        loss_mask[-num_target_tokens:] = 1
+        label_tokens = torch.cat(input_tensors + label_tensors)
+        return self._truncate_to_max_seq_len(text_inputs, spatial_inputs, loss_mask, label_tokens, num_target_tokens)
 
     def _extract_masked_tokens(
         self, input_tensors: List[torch.LongTensor], bbox_tensors: List[torch.FloatTensor], mask_indices: List[int]
-    ) -> Tuple[List[torch.LongTensor], List[torch.FloatTensor], List[torch.BoolTensor]]:
+    ) -> Tuple[List[torch.LongTensor], List[torch.FloatTensor], List[torch.BoolTensor], List[torch.LongTensor]]:
         target_tokens = []
+        label_tensors = [self._block_end_text_token]
         for i in mask_indices:
             target_tokens.append(self._block_start_text_token)
             target_tokens.append(input_tensors[i])
+            label_tensors.append(input_tensors[i])
+            label_tensors.append(self._block_end_text_token)
             input_tensors[i] = self._mask_text_token
             bbox_tensors[i] = self._mask_bbox_token
-        return input_tensors, bbox_tensors, target_tokens
+        return input_tensors, bbox_tensors, target_tokens, label_tensors
 
     def _truncate_to_max_seq_len(
         self,
         text_inputs: torch.LongTensor,
         spatial_inputs: torch.FloatTensor,
         loss_mask: torch.BoolTensor,
+        label_tokens: torch.LongTensor,
         num_target_tokens: int,
-    ) -> Tuple[torch.LongTensor, torch.FloatTensor, torch.BoolTensor]:
+    ) -> Tuple[torch.LongTensor, torch.FloatTensor, torch.BoolTensor, torch.LongTensor]:
         if text_inputs.size(0) <= self._config.max_seq_len:
-            return text_inputs, spatial_inputs, loss_mask
+            return text_inputs, spatial_inputs, loss_mask, label_tokens
         if text_inputs.size(0) - num_target_tokens + 1 >= self._config.max_seq_len:
             raise ValueError(
                 f"Number of tokens ({text_inputs.size(0)}) exceeds maximal sequence "
@@ -97,4 +102,5 @@ class DocLLMTrainDataPipe(IterDataPipe):
             text_inputs[: self._config.max_seq_len],
             spatial_inputs[: self._config.max_seq_len],
             loss_mask[: self._config.max_seq_len],
+            label_tokens[: self._config.max_seq_len],
         )

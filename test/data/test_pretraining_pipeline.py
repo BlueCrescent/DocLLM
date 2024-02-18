@@ -43,7 +43,7 @@ def test_datapipe_produces_expected_number_of_document_results_with_varying_batc
 
 
 def test_datapipe_produces_result_list_with_batch_size_entries(pipeline: IterDataPipe):
-    assert all(isinstance(res, list) and len(res) == 3 for res in list(pipeline)[:-1])
+    assert all(isinstance(res, list) and len(res) == 4 for res in list(pipeline)[:-1])
 
 
 def test_datapipe_first_list_entry_is_long_tensor(pipeline: IterDataPipe):

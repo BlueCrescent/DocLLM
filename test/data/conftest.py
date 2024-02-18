@@ -88,6 +88,7 @@ def pretraining_config(
         mask_bbox_token=(0.0, 0.0, 0.0, 0.0),
         block_start_text_token=1337,
         block_start_bbox_token=(0.0, 0.0, 0.0, 0.0),
+        block_end_text_token=1338,
         bos_text_token=1,
         bos_bbox_token=(0.0, 0.0, 0.0, 0.0),
         directory="",

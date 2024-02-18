@@ -28,11 +28,12 @@ def _build_batch_with_padding_wrapper_class(padding_value: float) -> Type[DataCh
     class BatchWithPaddingWrapperClass(DataChunk):
         _padding_value = padding_value
 
-        def __init__(self, items: List[Tuple[torch.LongTensor, torch.FloatTensor, torch.BoolTensor]]):
-            inputs, bboxes, mask = zip(*items)
+        def __init__(self, items: List[Tuple[torch.LongTensor, torch.FloatTensor, torch.BoolTensor, torch.LongTensor]]):
+            inputs, bboxes, mask, labels = zip(*items)
             input_batch = torch.nn.utils.rnn.pad_sequence(inputs, batch_first=True, padding_value=self._padding_value)
             bbox_batch = torch.nn.utils.rnn.pad_sequence(bboxes, batch_first=True, padding_value=self._padding_value)
             mask_batch = torch.nn.utils.rnn.pad_sequence(mask, batch_first=True, padding_value=self._padding_value)
-            super().__init__([input_batch, bbox_batch, mask_batch])
+            labels_batch = torch.nn.utils.rnn.pad_sequence(labels, batch_first=True, padding_value=self._padding_value)
+            super().__init__([input_batch, bbox_batch, mask_batch, labels_batch])
 
     return BatchWithPaddingWrapperClass

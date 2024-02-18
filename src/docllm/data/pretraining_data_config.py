@@ -33,7 +33,7 @@ class DocLLMPreTrainDataConfig(BaseModel):
     mask_text_token: int = 0
     mask_bbox_token: TokenRect = (0.0, 0.0, 0.0, 0.0)
     block_start_text_token: int
-    block_start_bbox_token: Optional[TokenRect] = None
+    block_end_text_token: int
     bos_text_token: Optional[int]
     bos_bbox_token: Optional[TokenRect] = None
     padding_value: float = 0.0
@@ -50,16 +50,10 @@ class DocLLMPreTrainDataConfig(BaseModel):
             raise ValueError("num_masked_blocks intervals cannot be empty or negative")
         return v
 
-    @field_validator("block_start_bbox_token", mode="after")
-    def set_block_start_bbox_token_if_not_set(cls, v: Optional[TokenRect], values: Dict[str, Any]) -> TokenRect:
-        if v is None:
-            return values["mask_bbox_token"]
-        return v
-
     @field_validator("bos_bbox_token", mode="after")
     def set_bos_bbox_token_if_not_set(cls, v: Optional[TokenRect], values: Dict[str, Any]) -> TokenRect:
-        if v is None and values["bos_text_token"] is not None:
-            return values["bos_bbox_token"]
+        if v is None:
+            return values["mask_bbox_token"]
         return v
 
 
