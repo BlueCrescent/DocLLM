@@ -1,4 +1,5 @@
 import logging
+import math
 from typing import Iterable, List, Tuple
 
 import torch
@@ -37,7 +38,7 @@ class DocLLMTrainDataPipe(IterDataPipe):
 
     def _get_valid_nun_masks(self, num_blocks):
         num_masks = self._get_num_masks(num_blocks)
-        if num_masks > (max_num_masks := num_blocks * self._config.max_percentage_masked_blocks):
+        if num_masks > (max_num_masks := math.ceil(num_blocks * self._config.max_percentage_masked_blocks)):
             logging.warning(
                 f"Number of masks ({num_masks}) cannot exceed maximal allowed number of "
                 f"blocks (ceil({num_blocks} * {self._config.max_percentage_masked_blocks}))."
