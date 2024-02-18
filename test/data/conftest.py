@@ -64,8 +64,10 @@ def range_block_size() -> Tuple[int, int]:
 
 @pytest.fixture
 def max_sequence_length(
-    num_masked_blocks: NumMaskedBlocksType, range_block_size: Tuple[int, int], num_blocks: int
+    request, num_masked_blocks: NumMaskedBlocksType, range_block_size: Tuple[int, int], num_blocks: int
 ) -> int:
+    if hasattr(request, "param") and request.param and isinstance(request.param, int):
+        return request.param
     if isinstance(num_masked_blocks, tuple):
         num_masked_blocks = num_masked_blocks[1]
     if isinstance(num_masked_blocks, int):

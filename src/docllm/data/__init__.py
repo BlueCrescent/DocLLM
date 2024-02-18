@@ -1,3 +1,5 @@
+from .data_packing_pipe import DataPackingPipe
 from .pretraining_data_config import DocLLMPreTrainDataConfig, NumMaskedBlocksType
 from .pretraining_data_pipe import DocLLMTrainDataPipe
+from .pretraining_pipeline import build_docllm_datapipeline
 from .tensor_data_loader_pipe import TensorDataLoaderPipe

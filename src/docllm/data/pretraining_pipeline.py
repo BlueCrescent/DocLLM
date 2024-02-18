@@ -11,11 +11,13 @@ def build_docllm_datapipeline(config: DocLLMPreTrainDataConfig) -> IterDataPipe:
     batch_wrapper_class = _build_batch_with_padding_wrapper_class(config.padding_value)
     datapipe = FileLister(config.directory, masks="*.pt", recursive=True)
     if config.shuffle:
-        datapipe = datapipe.shuffle()
+        datapipe = datapipe.shuffle(buffer_size=config.shuffle_buffer_size)
     if config.use_sharding_filter:
         datapipe = datapipe.sharding_filter()
     datapipe = datapipe.load_docllm_tensor_data()
     datapipe = datapipe.build_docllm_train_data(config=config)
+    if config.use_packing:
+        datapipe = datapipe.pack_data()
     datapipe = datapipe.batch(
         config.batch_size,
         drop_last=config.drop_last_batch_if_not_full,

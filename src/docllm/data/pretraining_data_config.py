@@ -19,7 +19,9 @@ class DocLLMPreTrainDataConfig(BaseModel):
     batch_size: PositiveInt
     drop_last_batch_if_not_full: bool = False
     shuffle: bool = True
+    shuffle_buffer_size: PositiveInt = 10000
     use_sharding_filter: bool = True
+    use_packing: bool = False
     max_seq_len: PositiveInt
 
     # This can encode either an absolute or relative count.
