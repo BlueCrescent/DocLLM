@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import torch
-from torchdata.datapipes.iter import IterDataPipe
+from torch.utils.data import IterDataPipe
 
 from docllm.data import DocLLMPreTrainDataConfig, DocLLMTrainDataPipe
 from docllm.data.pretrain_data_pipe import DocLLMTrainDataPipe

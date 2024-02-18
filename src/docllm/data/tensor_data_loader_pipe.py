@@ -1,11 +1,10 @@
 from typing import Iterable, List, Tuple
 
 import torch
-import torchdata
-from torchdata.datapipes.iter import IterDataPipe
+from torch.utils.data import IterDataPipe, functional_datapipe
 
 
-@torchdata.datapipes.functional_datapipe("load_docllm_tensor_data")
+@functional_datapipe("load_docllm_tensor_data")
 class TensorDataLoaderPipe(IterDataPipe):
     def __init__(self, source_datapipe: IterDataPipe) -> None:
         self._source_datapipe = source_datapipe

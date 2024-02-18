@@ -3,13 +3,12 @@ import math
 from typing import Iterable, List, Tuple
 
 import torch
-import torchdata
-from torchdata.datapipes.iter import IterDataPipe
+from torch.utils.data import IterDataPipe, functional_datapipe
 
 from docllm.data.pretraining_config import DocLLMPreTrainDataConfig
 
 
-@torchdata.datapipes.functional_datapipe("build_docllm_train_data")
+@functional_datapipe("build_docllm_train_data")
 class DocLLMTrainDataPipe(IterDataPipe):
     def __init__(self, source_datapipe: IterDataPipe, config: DocLLMPreTrainDataConfig) -> None:
         self._source_datapipe = source_datapipe
