@@ -1,31 +1,61 @@
-from typing import Tuple
+import random
+from tempfile import TemporaryDirectory
+from typing import Iterable, List, Tuple
 
-from pytest import fixture
+import pytest
+import torch
 
 from docllm.data.pretraining_config import DocLLMPreTrainDataConfig, NumMaskedBlocksType
 
 
-@fixture(params=[1, 2, (3, 5), 0.2, (0.2, 0.4)])
+@pytest.fixture
+def multiple_docs_test_data() -> List[List[Tuple[torch.LongTensor, torch.FloatTensor]]]:
+    num_docs = 10
+    docs = []
+    for _ in range(num_docs):
+        num_blocks = random.randint(4, 11)
+        data = [
+            (
+                torch.randint(0, 10, (seq_len := random.randint(1, 7),), dtype=torch.long),
+                torch.rand(seq_len, 4),
+            )
+            for _ in range(num_blocks)
+        ]
+        docs.append(data)
+    return docs
+
+
+@pytest.fixture
+def input_dir_with_data(
+    multiple_docs_test_data: List[List[Tuple[torch.LongTensor, torch.FloatTensor]]]
+) -> Iterable[str]:
+    with TemporaryDirectory() as input_dir:
+        for i, data in enumerate(multiple_docs_test_data):
+            torch.save(data, f"{input_dir}/doc_{i}.pt")
+        yield input_dir
+
+
+@pytest.fixture(params=[1, 2, (3, 5), 0.2, (0.2, 0.4)])
 def num_masked_blocks(request) -> NumMaskedBlocksType:
     return request.param
 
 
-@fixture
+@pytest.fixture
 def batch_size() -> int:
     return 1
 
 
-@fixture
+@pytest.fixture
 def num_blocks() -> int:
     return 10
 
 
-@fixture
+@pytest.fixture
 def range_block_size() -> Tuple[int, int]:
     return (2, 5)
 
 
-@fixture
+@pytest.fixture
 def max_sequence_length(
     num_masked_blocks: NumMaskedBlocksType, range_block_size: Tuple[int, int], num_blocks: int
 ) -> int:
@@ -38,7 +68,7 @@ def max_sequence_length(
     return range_block_size[1] * num_blocks + (range_block_size[1] + 1) * max_masked_blocks
 
 
-@fixture
+@pytest.fixture
 def pretraining_config(
     num_masked_blocks: NumMaskedBlocksType, batch_size: int, max_sequence_length: int
 ) -> DocLLMPreTrainDataConfig:
