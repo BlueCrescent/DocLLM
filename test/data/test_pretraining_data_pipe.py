@@ -13,13 +13,8 @@ from docllm.data.pretraining_data_pipe import DocLLMTrainDataPipe
 
 
 @pytest.fixture
-def num_pages() -> int:
-    return 3
-
-
-@pytest.fixture
 def test_data(
-    num_pages: int,
+    num_docs: int,
     num_blocks: int,
     range_block_size: Tuple[int, int],
 ) -> List[List[Tuple[torch.LongTensor, torch.FloatTensor]]]:
@@ -32,7 +27,7 @@ def test_data(
             )
             for _ in range(num_blocks)
         ]
-        for _ in range(num_pages)
+        for _ in range(num_docs)
     ]
 
 
@@ -57,8 +52,8 @@ def docllm_train_data_pipe(
 
 
 @pytest.fixture
-def num_tokens_on_pages(test_data: List[List[Tuple[torch.LongTensor, torch.FloatTensor]]]) -> List[int]:
-    return [sum(t.size(0) for t, _ in page_data) for page_data in test_data]
+def num_tokens_in_docs(test_data: List[List[Tuple[torch.LongTensor, torch.FloatTensor]]]) -> List[int]:
+    return [sum(t.size(0) for t, _ in doc_data) for doc_data in test_data]
 
 
 def test_instantiation(docllm_train_data_pipe: DocLLMTrainDataPipe):
@@ -91,7 +86,7 @@ def test_fourth_tuple_entry_is_long_tensor(docllm_train_data_pipe: DocLLMTrainDa
 
 def test_produces_correct_input_tensor_shapes(
     docllm_train_data_pipe: DocLLMTrainDataPipe,
-    num_tokens_on_pages: List[int],
+    num_tokens_in_docs: List[int],
     pretraining_config: DocLLMPreTrainDataConfig,
 ):
     num_masks_values, docllm_train_data_pipe._get_num_masks = extract_return_value(
@@ -99,14 +94,14 @@ def test_produces_correct_input_tensor_shapes(
     )
     count_bos_tokens = 1 if pretraining_config.bos_text_token else 0
     for (input_tensor, _, _, _), num_tokens, num_masks in zip(
-        docllm_train_data_pipe, num_tokens_on_pages, num_masks_values
+        docllm_train_data_pipe, num_tokens_in_docs, num_masks_values
     ):
         assert input_tensor.shape == (count_bos_tokens + num_tokens + 2 * num_masks,)
 
 
 def test_produces_correct_spatial_input_tensor_shapes(
     docllm_train_data_pipe: DocLLMTrainDataPipe,
-    num_tokens_on_pages: List[int],
+    num_tokens_in_docs: List[int],
     pretraining_config: DocLLMPreTrainDataConfig,
 ):
     num_masks_values, docllm_train_data_pipe._get_num_masks = extract_return_value(
@@ -114,14 +109,14 @@ def test_produces_correct_spatial_input_tensor_shapes(
     )
     count_bos_tokens = 1 if pretraining_config.bos_text_token else 0
     for (_, spatial_input, _, _), num_tokens, num_masks in zip(
-        docllm_train_data_pipe, num_tokens_on_pages, num_masks_values
+        docllm_train_data_pipe, num_tokens_in_docs, num_masks_values
     ):
         assert spatial_input.shape == (count_bos_tokens + num_tokens + 2 * num_masks, 4)
 
 
 def test_produces_correct_loss_mask_shapes(
     docllm_train_data_pipe: DocLLMTrainDataPipe,
-    num_tokens_on_pages: List[int],
+    num_tokens_in_docs: List[int],
     pretraining_config: DocLLMPreTrainDataConfig,
 ):
     num_masks_values, docllm_train_data_pipe._get_num_masks = extract_return_value(
@@ -129,14 +124,14 @@ def test_produces_correct_loss_mask_shapes(
     )
     count_bos_tokens = 1 if pretraining_config.bos_text_token else 0
     for (_, _, loss_mask, _), num_tokens, num_masks in zip(
-        docllm_train_data_pipe, num_tokens_on_pages, num_masks_values
+        docllm_train_data_pipe, num_tokens_in_docs, num_masks_values
     ):
         assert loss_mask.shape == (count_bos_tokens + num_tokens + 2 * num_masks,)
 
 
 def test_produces_correct_label_tensor_shapes(
     docllm_train_data_pipe: DocLLMTrainDataPipe,
-    num_tokens_on_pages: List[int],
+    num_tokens_in_docs: List[int],
     pretraining_config: DocLLMPreTrainDataConfig,
 ):
     num_masks_values, docllm_train_data_pipe._get_num_masks = extract_return_value(
@@ -144,7 +139,7 @@ def test_produces_correct_label_tensor_shapes(
     )
     count_bos_tokens = 1 if pretraining_config.bos_text_token else 0
     for (_, _, _, label_tensor), num_tokens, num_masks in zip(
-        docllm_train_data_pipe, num_tokens_on_pages, num_masks_values
+        docllm_train_data_pipe, num_tokens_in_docs, num_masks_values
     ):
         assert label_tensor.shape == (count_bos_tokens + num_tokens + 2 * num_masks,)
 
