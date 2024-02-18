@@ -3,21 +3,21 @@ from test.util import extract_return_value
 from typing import List, Tuple
 from unittest.mock import MagicMock
 
+import pytest
 import torch
-from pytest import fixture
-from torch.utils.data import IterDataPipe
+from torchdata.datapipes.iter import IterDataPipe
 
 from docllm.data import DocLLMPreTrainDataConfig, DocLLMTrainDataPipe
-from docllm.data.pretrain_data_pipeline import DocLLMTrainDataPipe
+from docllm.data.pretrain_data_pipe import DocLLMTrainDataPipe
 from docllm.data.pretraining_config import DocLLMPreTrainDataConfig
 
 
-@fixture
+@pytest.fixture
 def num_pages() -> int:
     return 3
 
 
-@fixture
+@pytest.fixture
 def test_data(
     num_pages: int,
     num_blocks: int,
@@ -36,7 +36,7 @@ def test_data(
     ]
 
 
-@fixture
+@pytest.fixture
 def source_datapipe(test_data: List[List[Tuple[torch.LongTensor, torch.FloatTensor]]]) -> IterDataPipe:
     def split_list(
         lst: List[Tuple[torch.LongTensor, torch.FloatTensor]]
@@ -49,14 +49,14 @@ def source_datapipe(test_data: List[List[Tuple[torch.LongTensor, torch.FloatTens
     return pipe
 
 
-@fixture
+@pytest.fixture
 def docllm_train_data_pipe(
     source_datapipe: IterDataPipe, pretraining_config: DocLLMPreTrainDataConfig
 ) -> DocLLMTrainDataPipe:
     return DocLLMTrainDataPipe(source_datapipe, pretraining_config)
 
 
-@fixture
+@pytest.fixture
 def num_tokens_on_pages(test_data: List[List[Tuple[torch.LongTensor, torch.FloatTensor]]]) -> List[int]:
     return [sum(t.size(0) for t, _ in page_data) for page_data in test_data]
 

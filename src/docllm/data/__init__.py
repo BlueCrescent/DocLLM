@@ -1,3 +1,3 @@
-from .pretrain_data_pipeline import DocLLMTrainDataPipe
+from .pretrain_data_pipe import DocLLMTrainDataPipe
 from .pretraining_config import DocLLMPreTrainDataConfig, NumMaskedBlocksType
-from .tensor_data_loader_pipeline import TensorDataLoaderPipe
+from .tensor_data_loader_pipe import TensorDataLoaderPipe
