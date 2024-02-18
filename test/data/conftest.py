@@ -5,12 +5,16 @@ from typing import Iterable, List, Tuple
 import pytest
 import torch
 
-from docllm.data.pretraining_config import DocLLMPreTrainDataConfig, NumMaskedBlocksType
+from docllm.data.pretraining_data_config import DocLLMPreTrainDataConfig, NumMaskedBlocksType
 
 
 @pytest.fixture
-def multiple_docs_test_data() -> List[List[Tuple[torch.LongTensor, torch.FloatTensor]]]:
-    num_docs = 10
+def num_docs() -> int:
+    return 10
+
+
+@pytest.fixture
+def multiple_docs_test_data(num_docs: int) -> List[List[Tuple[torch.LongTensor, torch.FloatTensor]]]:
     docs = []
     for _ in range(num_docs):
         num_blocks = random.randint(4, 11)

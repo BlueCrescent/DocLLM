@@ -8,8 +8,8 @@ import torch
 from torch.utils.data import IterDataPipe
 
 from docllm.data import DocLLMPreTrainDataConfig, DocLLMTrainDataPipe
-from docllm.data.pretrain_data_pipe import DocLLMTrainDataPipe
-from docllm.data.pretraining_config import DocLLMPreTrainDataConfig
+from docllm.data.pretraining_data_config import DocLLMPreTrainDataConfig
+from docllm.data.pretraining_data_pipe import DocLLMTrainDataPipe
 
 
 @pytest.fixture
