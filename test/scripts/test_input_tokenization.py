@@ -40,7 +40,7 @@ def test_document_tokenization_produces_correct_number_of_files(
 def test_document_tokenization_produces_correct_number_of_tensors(
     input_file: str, output_dir: str, use_page_dimensions: bool
 ):
-    def test(tensors: List[Tuple[torch.Tensor]], page_num: int):
+    def test(tensors: List[Tuple[torch.Tensor, torch.Tensor]], page_num: int):
         assert len(tensors) == len(document_dict["pages"][page_num]["blocks"])
 
     document_tokenization(input_file, output_dir, use_page_dimensions)
@@ -51,7 +51,7 @@ def test_document_tokenization_produces_correct_number_of_tensors(
 def test_document_tokenization_produces_two_tensors_for_each_block(
     input_file: str, output_dir: str, use_page_dimensions: bool
 ):
-    def test(tensors: List[Tuple[torch.Tensor]], page_num: int):
+    def test(tensors: List[Tuple[torch.Tensor, torch.Tensor]], page_num: int):
         assert all(len(tensor) == 2 for tensor in tensors)
 
     document_tokenization(input_file, output_dir, use_page_dimensions)
@@ -62,7 +62,7 @@ def test_document_tokenization_produces_two_tensors_for_each_block(
 def test_document_tokenization_tensor_lengths_are_number_of_tokens_in_block(
     input_file: str, output_dir: str, use_page_dimensions: bool
 ):
-    def test(tensors: List[Tuple[torch.Tensor]], page_num: int):
+    def test(tensors: List[Tuple[torch.Tensor, torch.Tensor]], page_num: int):
         for (text_tensor, bbox_tensor), block in zip(tensors, document_dict["pages"][page_num]["blocks"]):
             num_tokens = len([t for l in block["lines"] for w in l["words"] for t in w["tokens"]])
             assert text_tensor.shape == (num_tokens,) and bbox_tensor.shape[0] == num_tokens
@@ -75,7 +75,7 @@ def test_document_tokenization_tensor_lengths_are_number_of_tokens_in_block(
 def test_document_tokenization_produces_bbox_tensors_with_size_four(
     input_file: str, output_dir: str, use_page_dimensions: bool
 ):
-    def test(tensors: List[Tuple[torch.Tensor]], page_num: int):
+    def test(tensors: List[Tuple[torch.Tensor, torch.Tensor]], page_num: int):
         for _, bbox_tensor in tensors:
             assert bbox_tensor.shape[-1] == 4
 
@@ -87,7 +87,7 @@ def test_document_tokenization_produces_bbox_tensors_with_size_four(
 def test_document_tokenization_produces_bbox_with_expected_shape(
     input_file: str, output_dir: str, use_page_dimensions: bool
 ):
-    def test(tensors: List[Tuple[torch.Tensor]], page_num: int):
+    def test(tensors: List[Tuple[torch.Tensor, torch.Tensor]], page_num: int):
         for (_, bbox_tensor), block in zip(tensors, document_dict["pages"][page_num]["blocks"]):
             num_tokens = len([t for l in block["lines"] for w in l["words"] for t in w["tokens"]])
             assert bbox_tensor.shape == (num_tokens, 4)
@@ -181,7 +181,9 @@ def test_bounding_box_tokenizer_produces_scaled_coordinates_using_min_max():
     assert tokenizer(bounding_box).tolist() == pytest.approx(token_bb, 0.0001)
 
 
-def _run_test_for_each_page_result_file(output_dir: str, test: Callable[[List[Tuple[torch.Tensor]], int], None]):
+def _run_test_for_each_page_result_file(
+    output_dir: str, test: Callable[[List[Tuple[torch.Tensor, torch.Tensor]], int], None]
+):
     for filename in os.listdir(output_dir):
         with open(os.path.join(output_dir, filename), "rb") as file:
             tensors = torch.load(file)
