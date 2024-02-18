@@ -65,7 +65,7 @@ class DocLLMTrainDataPipe(IterDataPipe):
         loss_mask = torch.zeros_like(text_inputs, dtype=torch.bool)
         # The first block start token [S] is not used for loss computation.
         loss_mask[-(num_target_tokens - 1) :] = 1
-        return text_inputs, spatial_inputs, loss_mask
+        return self._truncate_to_max_seq_len(text_inputs, spatial_inputs, loss_mask, num_target_tokens)
 
     def _extract_masked_tokens(
         self, input_tensors: List[torch.LongTensor], bbox_tensors: List[torch.FloatTensor], mask_indices: List[int]
@@ -77,3 +77,23 @@ class DocLLMTrainDataPipe(IterDataPipe):
             input_tensors[i] = self._mask_text_token
             bbox_tensors[i] = self._mask_bbox_token
         return input_tensors, bbox_tensors, target_tokens
+
+    def _truncate_to_max_seq_len(
+        self,
+        text_inputs: torch.LongTensor,
+        spatial_inputs: torch.FloatTensor,
+        loss_mask: torch.BoolTensor,
+        num_target_tokens: int,
+    ) -> Tuple[torch.LongTensor, torch.FloatTensor, torch.BoolTensor]:
+        if text_inputs.size(0) <= self._config.max_seq_len:
+            return text_inputs, spatial_inputs, loss_mask
+        if text_inputs.size(0) - num_target_tokens + 1 >= self._config.max_seq_len:
+            raise ValueError(
+                f"Number of tokens ({text_inputs.size(0)}) exceeds maximal sequence length."
+                " Nothing would be learned."
+            )
+        return (
+            text_inputs[: self._config.max_seq_len],
+            spatial_inputs[: self._config.max_seq_len],
+            loss_mask[: self._config.max_seq_len],
+        )
