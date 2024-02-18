@@ -1,4 +1,4 @@
-from test.llama.conftest import InputSizes, ModelInputs
+from test.llama.helpers import InputSizes, ModelInputs
 
 import torch
 import torch.nn as nn

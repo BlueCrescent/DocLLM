@@ -1,4 +1,4 @@
-from test.llama.conftest import InputSizes, ModelInputs
+from test.llama.helpers import InputSizes, ModelInputs
 
 import torch
 from transformers.cache_utils import Cache

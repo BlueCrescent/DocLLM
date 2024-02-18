@@ -1,21 +1,10 @@
+from test.llama.helpers import InputSizes, ModelInputs
+
 import pytest
 import torch
-from pydantic import BaseModel, ConfigDict
 from transformers.cache_utils import Cache, DynamicCache
 
 from docllm.llama.config import DocLLMLlamaConfig
-
-
-class InputSizes(BaseModel):
-    batch_size: int
-    sequence_length: int
-
-
-class ModelInputs(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    input_embeddings: torch.Tensor
-    spatial_embeddings: torch.Tensor
 
 
 @pytest.fixture
