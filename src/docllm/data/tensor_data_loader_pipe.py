@@ -10,6 +10,6 @@ class TensorDataLoaderPipe(IterDataPipe):
     def __init__(self, source_datapipe: IterDataPipe) -> None:
         self._source_datapipe = source_datapipe
 
-    def __iter__(self) -> Iterable[List[Tuple[torch.Tensor, torch.Tensor]]]:
+    def __iter__(self) -> Iterable[Tuple[List[torch.Tensor], List[torch.Tensor]]]:
         for file_name in self._source_datapipe:
-            yield torch.load(file_name, map_location="cpu")
+            yield tuple(map(list, zip(*torch.load(file_name, map_location="cpu"))))
