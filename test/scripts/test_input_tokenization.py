@@ -1,6 +1,6 @@
 import json
 import os
-from tempfile import NamedTemporaryFile, TemporaryDirectory, _TemporaryFileWrapper
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 from test.scripts.example_json import document_dict
 from typing import Callable, Iterable, List, Tuple
 
@@ -76,8 +76,21 @@ def test_document_tokenization_produces_bbox_tensors_with_size_four(
     input_file: str, output_dir: str, use_page_dimensions: bool
 ):
     def test(tensors: List[Tuple[torch.Tensor]], page_num: int):
-        for tensor in tensors:
-            assert tensor[1].shape[-1] == 4
+        for _, bbox_tensor in tensors:
+            assert bbox_tensor.shape[-1] == 4
+
+    document_tokenization(input_file, output_dir, use_page_dimensions)
+    _run_test_for_each_page_result_file(output_dir, test)
+
+
+@pytest.mark.parametrize("use_page_dimensions", [True, False])
+def test_document_tokenization_produces_bbox_with_expected_shape(
+    input_file: str, output_dir: str, use_page_dimensions: bool
+):
+    def test(tensors: List[Tuple[torch.Tensor]], page_num: int):
+        for (_, bbox_tensor), block in zip(tensors, document_dict["pages"][page_num]["blocks"]):
+            num_tokens = len([t for l in block["lines"] for w in l["words"] for t in w["tokens"]])
+            assert bbox_tensor.shape == (num_tokens, 4)
 
     document_tokenization(input_file, output_dir, use_page_dimensions)
     _run_test_for_each_page_result_file(output_dir, test)

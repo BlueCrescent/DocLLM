@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import sys
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Tuple
 
 import torch
 
@@ -27,8 +27,7 @@ def document_tokenization(filename: str, output_dir: str, use_page_dimensions: b
     for i, page_block_tokens in enumerate(
         document_tokenization_to_pagewise_block_tokens(filename, use_page_dimensions)
     ):
-        with open(os.path.join(output_dir, f"{basename}_{i}.pt"), "wb") as file:
-            torch.save(page_block_tokens, file)
+        torch.save(page_block_tokens, os.path.join(output_dir, f"{basename}_{i}.pt"))
 
 
 def document_tokenization_to_pagewise_block_tokens(
