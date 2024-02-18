@@ -89,8 +89,9 @@ class DocLLMTrainDataPipe(IterDataPipe):
             return text_inputs, spatial_inputs, loss_mask
         if text_inputs.size(0) - num_target_tokens + 1 >= self._config.max_seq_len:
             raise ValueError(
-                f"Number of tokens ({text_inputs.size(0)}) exceeds maximal sequence length."
-                " Nothing would be learned."
+                f"Number of tokens ({text_inputs.size(0)}) exceeds maximal sequence "
+                f"length ({self._config.max_seq_len}) with {num_target_tokens=}. "
+                "Nothing would be learned. Skipping..."
             )
         return (
             text_inputs[: self._config.max_seq_len],
