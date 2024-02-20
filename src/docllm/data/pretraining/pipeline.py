@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import DataChunk, IterDataPipe
 from torch.utils.data.datapipes.iter import FileLister
 
-from docllm.data.pretraining_data_config import DocLLMPreTrainDataConfig
+from docllm.data.pretraining.config import DocLLMPreTrainDataConfig
 
 
 def build_docllm_datapipeline(config: DocLLMPreTrainDataConfig) -> IterDataPipe:

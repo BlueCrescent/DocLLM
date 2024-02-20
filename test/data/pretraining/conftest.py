@@ -6,7 +6,7 @@ from typing import Iterable, List, Tuple
 import pytest
 import torch
 
-from docllm.data.pretraining_data_config import DocLLMPreTrainDataConfig, NumMaskedBlocksType
+from docllm.data.pretraining.config import DocLLMPreTrainDataConfig, NumMaskedBlocksType
 
 
 @pytest.fixture

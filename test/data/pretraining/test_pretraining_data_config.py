@@ -1,7 +1,7 @@
 import math
 
 from docllm.data import DocLLMPreTrainDataConfig
-from docllm.data.pretraining_data_config import NumMaskedBlocksType
+from docllm.data.pretraining.config import NumMaskedBlocksType
 
 
 def test_instantiation(pretraining_config: DocLLMPreTrainDataConfig):

@@ -1,5 +1,7 @@
-from .data_packing_pipe import DataPackingPipe
-from .pretraining_data_config import DocLLMPreTrainDataConfig, NumMaskedBlocksType
-from .pretraining_data_pipe import DocLLMTrainDataPipe
-from .pretraining_pipeline import build_docllm_datapipeline
-from .tensor_data_loader_pipe import TensorDataLoaderPipe
+from .preprocessing.data_structure import Block, Coord, Document, Line, Page, Rect, Token, Word, WritingMode
+from .preprocessing.doc_data_to_pickle import document_tokenization_from_data, document_tokenization_from_file
+from .pretraining.config import DocLLMPreTrainDataConfig, NumMaskedBlocksType
+from .pretraining.data_packing_pipe import DataPackingPipe
+from .pretraining.pipeline import build_docllm_datapipeline
+from .pretraining.tensor_data_loader_pipe import TensorDataLoaderPipe
+from .pretraining.traindata_pipe import DocLLMTrainDataPipe

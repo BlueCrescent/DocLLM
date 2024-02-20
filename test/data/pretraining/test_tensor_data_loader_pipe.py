@@ -7,7 +7,7 @@ import pytest
 import torch
 from torch.utils.data import IterDataPipe
 
-from docllm.data.tensor_data_loader_pipe import TensorDataLoaderPipe
+from docllm.data.pretraining.tensor_data_loader_pipe import TensorDataLoaderPipe
 
 
 @pytest.fixture

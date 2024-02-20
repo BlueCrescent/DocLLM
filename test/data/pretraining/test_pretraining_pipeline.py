@@ -4,8 +4,8 @@ import pytest
 import torch
 from torch.utils.data import IterDataPipe
 
-from docllm.data.pretraining_data_config import DocLLMPreTrainDataConfig
-from docllm.data.pretraining_pipeline import build_docllm_datapipeline
+from docllm.data.pretraining.config import DocLLMPreTrainDataConfig
+from docllm.data.pretraining.pipeline import build_docllm_datapipeline
 
 
 @pytest.fixture
@@ -32,6 +32,7 @@ def test_initialization(pipeline: IterDataPipe):
 
 
 def test_datapipe_produces_expected_number_of_document_results(pipeline: IterDataPipe, num_docs: int):
+    # FIXME fails sometimes because sequence length is to long
     assert len(list(pipeline)) == num_docs
 
 

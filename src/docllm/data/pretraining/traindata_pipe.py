@@ -5,7 +5,7 @@ from typing import Iterable, List, Tuple
 import torch
 from torch.utils.data import IterDataPipe, functional_datapipe
 
-from docllm.data.pretraining_data_config import DocLLMPreTrainDataConfig
+from docllm.data.pretraining.config import DocLLMPreTrainDataConfig
 
 
 @functional_datapipe("build_docllm_train_data")

@@ -6,7 +6,7 @@ import pytest
 import torch
 from torch.utils.data import IterDataPipe
 
-from docllm.data.data_packing_pipe import DataPackingPipe
+from docllm.data.pretraining.data_packing_pipe import DataPackingPipe
 
 
 @pytest.fixture

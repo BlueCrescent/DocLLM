@@ -2,39 +2,38 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 from typing import Any, Dict, Iterable, List, Tuple
 
 import torch
+
+from docllm.data.preprocessing.data_structure import Document
 
 Coord = float
 Rect = Tuple[Coord, Coord, Coord, Coord]
 
 
-def main(input_file_or_dir: str, output_dir: str, use_page_dimensions: bool) -> None:
-    if os.path.isfile(input_file_or_dir):
-        input_files = [input_file_or_dir]
-    else:
-        input_files = [
-            os.path.join(input_file_or_dir, fn) for fn in os.listdir(input_file_or_dir) if fn.endswith(".json")
-        ]
-    for filename in input_files:
-        document_tokenization(filename, output_dir, use_page_dimensions)
-
-
-def document_tokenization(filename: str, output_dir: str, use_page_dimensions: bool) -> None:
+def document_tokenization_from_file(filename: str, output_dir: str, use_page_dimensions: bool) -> None:
     basename = os.path.splitext(os.path.basename(filename))[0]
+    with open(filename, "r") as file:
+        document_tokenization = json.load(file)
     for i, page_block_tokens in enumerate(
-        document_tokenization_to_pagewise_block_tokens(filename, use_page_dimensions)
+        document_tokenization_to_pagewise_block_tokens(document_tokenization, use_page_dimensions)
+    ):
+        torch.save(page_block_tokens, os.path.join(output_dir, f"{basename}_{i}.pt"))
+
+
+def document_tokenization_from_data(doc_data: Document, output_dir: str, use_page_dimensions: bool) -> None:
+    basename = os.path.splitext(os.path.basename(doc_data.filename))[0]
+    document_tokenization = doc_data.model_dump()
+    for i, page_block_tokens in enumerate(
+        document_tokenization_to_pagewise_block_tokens(document_tokenization, use_page_dimensions)
     ):
         torch.save(page_block_tokens, os.path.join(output_dir, f"{basename}_{i}.pt"))
 
 
 def document_tokenization_to_pagewise_block_tokens(
-    filename: str, use_page_dimensions: bool
+    document_tokenization: str, use_page_dimensions: bool
 ) -> Iterable[List[torch.Tensor]]:
-    with open(filename, "r") as file:
-        document_tokenization = json.load(file)
     for page in document_tokenization["pages"]:
         tokenizer = BoundingBoxTokenizer(page, use_page_dimensions)
         yield list(page_tokenization_to_block_tokens(page, tokenizer))
@@ -89,15 +88,3 @@ class BoundingBoxTokenizer:
                         maxx = max(maxx, token["bbox"][2])
                         maxy = max(maxy, token["bbox"][3])
         return minx, miny, maxx - minx, maxy - miny
-
-
-if __name__ == "__main__":
-    print(sys.argv)
-    if len(sys.argv) < 3:
-        print("Usage: python document_tokenization.py <input_file_or_dir> <output_dir> [<use_page_dimensions>]")
-        print("Default value for use_page_dimensions is True.")
-        sys.exit(1)
-    input_file_or_dir = sys.argv[1]
-    output_dir = sys.argv[2]
-    use_page_dimensions = bool(sys.argv[3]) if len(sys.argv) > 3 else True
-    main(input_file_or_dir, output_dir, use_page_dimensions)
