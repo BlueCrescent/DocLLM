@@ -12,7 +12,7 @@ class DocLLMLlamaConfig(LlamaConfig):
         num_attention_heads=32,
         num_key_value_heads=None,
         hidden_act="silu",
-        max_position_embeddings=2048,
+        max_position_embeddings=4096,
         initializer_range=0.02,
         rms_norm_eps=0.000001,
         use_cache=False,
