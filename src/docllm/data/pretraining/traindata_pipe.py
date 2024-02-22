@@ -38,7 +38,7 @@ class DocLLMTrainDataPipe(IterDataPipe):
 
     def _get_valid_nun_masks(self, num_blocks):
         num_masks = self._get_num_masks(num_blocks)
-        if num_masks > (max_num_masks := math.ceil(num_blocks * self._config.max_percentage_masked_blocks)):
+        if num_masks > (max_num_masks := self._compute_max_num_masks(num_blocks)):
             logging.warning(
                 f"Number of masks ({num_masks}) cannot exceed maximal allowed number of "
                 f"blocks (ceil({num_blocks} * {self._config.max_percentage_masked_blocks}))."
@@ -48,13 +48,14 @@ class DocLLMTrainDataPipe(IterDataPipe):
             raise ValueError("Number of masks cannot be zero.")
         return num_masks
 
+    def _compute_max_num_masks(self, num_blocks):
+        return min(math.ceil(num_blocks * self._config.max_percentage_masked_blocks), num_blocks)
+
     def _get_mask_indices(self, num_blocks: int, num_masks: int) -> List[int]:
         # FIXME: Should we prevent adjacent blocks from being masked?
         weights = torch.ones(num_blocks)
-        if not self._config.allow_mask_first_token:
-            weights[0] = 0
         mask_indices = torch.multinomial(weights, num_masks, replacement=False)
-        return sorted(mask_indices)
+        return sorted(map(torch.Tensor.item, mask_indices))
 
     def _create_masked_input(
         self, input_tensors: List[torch.LongTensor], bbox_tensors: List[torch.FloatTensor], mask_indices: List[int]

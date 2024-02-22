@@ -31,7 +31,6 @@ class DocLLMPreTrainDataConfig(BaseModel):
     # Num blocks times the value will be ceiled to get the
     # maximum number of blocks that can be masked.
     max_percentage_masked_blocks: ZeroOneFloat = 0.15
-    allow_mask_first_token: bool = False
 
     mask_text_token: int = 0
     mask_bbox_token: TokenRect = (0.0, 0.0, 0.0, 0.0)
