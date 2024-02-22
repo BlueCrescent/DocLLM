@@ -40,9 +40,9 @@ def input_dir_with_data(
         yield input_dir
 
 
-@pytest.fixture(params=[1, 2, (3, 5), 0.2, (0.2, 0.4)])
-def num_masked_blocks(request) -> NumMaskedBlocksType:
-    return request.param
+@pytest.fixture
+def num_blocks() -> int:
+    return 10
 
 
 @pytest.fixture
@@ -50,11 +50,6 @@ def batch_size(request) -> int:
     if not hasattr(request, "param") or request.param is None:
         return 1
     return request.param
-
-
-@pytest.fixture
-def num_blocks() -> int:
-    return 10
 
 
 @pytest.fixture
@@ -77,15 +72,30 @@ def max_sequence_length(
     return range_block_size[1] * num_blocks + (range_block_size[1] + 1) * max_masked_blocks
 
 
+@pytest.fixture(params=[1, 2, (3, 5), 0.2, (0.2, 0.4)])
+def num_masked_blocks(request) -> NumMaskedBlocksType:
+    return request.param
+
+
+@pytest.fixture
+def max_percentage_masked_blocks(request) -> float:
+    if not hasattr(request, "param") or request.param is None:
+        return 0.8
+    return request.param
+
+
 @pytest.fixture
 def pretraining_config(
-    num_masked_blocks: NumMaskedBlocksType, batch_size: int, max_sequence_length: int
+    batch_size: int,
+    max_sequence_length: int,
+    num_masked_blocks: NumMaskedBlocksType,
+    max_percentage_masked_blocks: float,
 ) -> DocLLMPreTrainDataConfig:
     return DocLLMPreTrainDataConfig(
         batch_size=batch_size,
         max_seq_length=max_sequence_length,
         num_masked_blocks=num_masked_blocks,
-        max_percentage_masked_blocks=0.8,
+        max_percentage_masked_blocks=max_percentage_masked_blocks,
         mask_text_token=0,
         mask_bbox_token=(0.0, 0.0, 0.0, 0.0),
         block_start_text_token=1337,

@@ -161,3 +161,24 @@ def test_get_mask_indices():
         result = train_data_pipe._get_mask_indices(num_blocks, num_masks)
         assert len(result) == num_masks
         assert all(0 <= index < num_blocks for index in result)
+
+
+@pytest.mark.parametrize("num_masked_blocks,max_percentage_masked_blocks", [(1.0, 1.0)], indirect=True)
+def test_mask_whole_sequence_works_for_text_tokens(
+    docllm_train_data_pipe: DocLLMTrainDataPipe,
+    pretraining_config: DocLLMPreTrainDataConfig,
+    test_data: List[List[Tuple[torch.LongTensor, torch.FloatTensor]]],
+):
+    for dat, (t1, _, _, _) in zip(test_data, docllm_train_data_pipe):
+        assert (t1[1 : len(dat)] == pretraining_config.mask_text_token).all()
+
+
+@pytest.mark.parametrize("num_masked_blocks,max_percentage_masked_blocks", [(1.0, 1.0)], indirect=True)
+def test_mask_whole_sequence_works_for_box_tokens(
+    docllm_train_data_pipe: DocLLMTrainDataPipe,
+    pretraining_config: DocLLMPreTrainDataConfig,
+    test_data: List[List[Tuple[torch.LongTensor, torch.FloatTensor]]],
+):
+    mask_bbox_token = torch.tensor(pretraining_config.mask_bbox_token)
+    for dat, (_, t2, _, _) in zip(test_data, docllm_train_data_pipe):
+        assert all((box == mask_bbox_token).all() for box in t2[1 : len(dat)])
