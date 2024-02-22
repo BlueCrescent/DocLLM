@@ -16,14 +16,12 @@ def test_data(
 ) -> List[Tuple[torch.LongTensor, torch.FloatTensor, torch.BoolTensor, torch.LongTensor]]:
     max_token = 1111
     return [
-        [
-            (
-                torch.randint(max_token, (b := random.randint(range_block_size[0], range_block_size[1]),)),
-                torch.rand(b, 4),
-                torch.ones(b, dtype=torch.bool),
-                torch.randint(max_token, (b,)),
-            )
-        ]
+        (
+            torch.randint(max_token, (b := random.randint(range_block_size[0], range_block_size[1]),)),
+            torch.rand(b, 4),
+            torch.ones(b, dtype=torch.bool),
+            torch.randint(max_token, (b,)),
+        )
         for _ in range(num_docs)
     ]
 
@@ -32,7 +30,7 @@ def test_data(
 def min_test_data_sequence_length(
     test_data: List[Tuple[torch.LongTensor, torch.FloatTensor, torch.BoolTensor, torch.LongTensor]]
 ) -> int:
-    return min(min(t.size(0) for t, _, _, _ in doc_data) for doc_data in test_data)
+    return min(t.size(0) for t, _, _, _ in test_data)
 
 
 @pytest.fixture

@@ -25,6 +25,11 @@ def tensor_data_loader_pipe(files_datapipe: IterDataPipe) -> TensorDataLoaderPip
     return TensorDataLoaderPipe(files_datapipe)
 
 
+@pytest.fixture
+def add_empty_file(input_dir_with_data: str):
+    torch.save([], f"{input_dir_with_data}/empty_doc.py")
+
+
 def test_initialization(tensor_data_loader_pipe: TensorDataLoaderPipe):
     assert isinstance(tensor_data_loader_pipe, TensorDataLoaderPipe)
 
@@ -70,3 +75,11 @@ def test_second_tensors_are_same_as_initial_data(
     for (_, lst2), data in zip(tensor_data_loader_pipe, multiple_docs_test_data):
         _, dat2 = zip(*data)
         assert all((t2 == d2).all() for t2, d2 in zip(lst2, dat2))
+
+
+@pytest.mark.usefixtures("add_empty_file")
+def test_empty_file_is_skipped(
+    tensor_data_loader_pipe: TensorDataLoaderPipe,
+    multiple_docs_test_data: List[List[Tuple[torch.LongTensor, torch.FloatTensor]]],
+):
+    assert len(list(tensor_data_loader_pipe)) == len(multiple_docs_test_data)

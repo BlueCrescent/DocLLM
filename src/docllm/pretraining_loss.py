@@ -20,7 +20,9 @@ class DocLLMCrossEntropyLoss(nn.CrossEntropyLoss):
             label_smoothing=label_smoothing,
         )
 
-    def forward(self, logits: torch.FloatTensor, labels: torch.LongTensor, mask: torch.BoolTensor) -> torch.FloatTensor:
+    def forward(
+        self, logits: torch.FloatTensor, labels: torch.LongTensor, loss_mask: torch.BoolTensor
+    ) -> torch.FloatTensor:
         losses = super().forward(logits.view(-1, logits.size(-1)), labels.view(-1))
-        losses = losses * mask.view(-1).float()
+        losses = losses * loss_mask.view(-1).float()
         return losses.sum()

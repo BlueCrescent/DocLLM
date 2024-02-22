@@ -5,7 +5,7 @@ from collections.abc import Sequence
 from typing import Annotated, Any, Dict, Optional, Protocol, Tuple, runtime_checkable
 
 import torch
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 PositiveInt = Annotated[int, Field(strict=True, gt=0)]
 ZeroOneFloat = Annotated[float, Field(strict=True, ge=0, le=1)]
@@ -22,7 +22,7 @@ class DocLLMPreTrainDataConfig(BaseModel):
     shuffle_buffer_size: PositiveInt = 10000
     use_sharding_filter: bool = True
     use_packing: bool = False
-    max_seq_len: PositiveInt
+    max_seq_length: PositiveInt
 
     # This can encode either an absolute or relative count.
     # If an interval is given, the number of masked blocks
@@ -31,6 +31,7 @@ class DocLLMPreTrainDataConfig(BaseModel):
     # Num blocks times the value will be ceiled to get the
     # maximum number of blocks that can be masked.
     max_percentage_masked_blocks: ZeroOneFloat = 0.15
+    allow_mask_first_token: bool = False
 
     mask_text_token: int = 0
     mask_bbox_token: TokenRect = (0.0, 0.0, 0.0, 0.0)
@@ -53,9 +54,11 @@ class DocLLMPreTrainDataConfig(BaseModel):
         return v
 
     @field_validator("bos_bbox_token", mode="after")
-    def set_bos_bbox_token_if_not_set(cls, v: Optional[TokenRect], values: Dict[str, Any]) -> TokenRect:
+    def set_bos_bbox_token_if_not_set(
+        cls, v: Optional[TokenRect], info: ValidationInfo  # , values: Dict[str, Any]
+    ) -> TokenRect:
         if v is None:
-            return values["mask_bbox_token"]
+            return info.data["mask_bbox_token"]
         return v
 
 

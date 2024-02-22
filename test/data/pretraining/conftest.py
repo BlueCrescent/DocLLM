@@ -83,7 +83,7 @@ def pretraining_config(
 ) -> DocLLMPreTrainDataConfig:
     return DocLLMPreTrainDataConfig(
         batch_size=batch_size,
-        max_seq_len=max_sequence_length,
+        max_seq_length=max_sequence_length,
         num_masked_blocks=num_masked_blocks,
         max_percentage_masked_blocks=0.8,
         mask_text_token=0,

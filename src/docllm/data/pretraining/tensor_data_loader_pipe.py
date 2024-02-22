@@ -1,3 +1,4 @@
+import logging
 from typing import Iterable, List, Tuple
 
 import torch
@@ -11,4 +12,9 @@ class TensorDataLoaderPipe(IterDataPipe):
 
     def __iter__(self) -> Iterable[Tuple[List[torch.Tensor], List[torch.Tensor]]]:
         for file_name in self._source_datapipe:
-            yield tuple(map(list, zip(*torch.load(file_name, map_location="cpu"))))
+            file_data = torch.load(file_name, map_location="cpu")
+            if len(file_data) > 0:
+                text_tokens, bbox_tokens = tuple(map(list, zip(*file_data)))
+                yield text_tokens, bbox_tokens
+            else:
+                logging.warning(f"File {file_name} is empty.")

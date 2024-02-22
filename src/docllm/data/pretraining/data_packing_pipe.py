@@ -15,7 +15,6 @@ class DataPackingPipe(IterDataPipe):
         total_size = 0
 
         for item in self._source_datapipe:
-            item = item[0]
             item_size = item[0].size(0)
             if total_size + item_size > self._max_sequence_length:
                 inputs, bboxes, mask, labels = zip(*elements)

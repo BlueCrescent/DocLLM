@@ -17,7 +17,7 @@ def build_docllm_datapipeline(config: DocLLMPreTrainDataConfig) -> IterDataPipe:
     datapipe = datapipe.load_docllm_tensor_data()
     datapipe = datapipe.build_docllm_train_data(config=config)
     if config.use_packing:
-        datapipe = datapipe.pack_data()
+        datapipe = datapipe.pack_data(max_sequence_length=config.max_seq_length)
     datapipe = datapipe.batch(
         config.batch_size,
         drop_last=config.drop_last_batch_if_not_full,

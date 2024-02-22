@@ -50,7 +50,10 @@ class DocLLMTrainDataPipe(IterDataPipe):
 
     def _get_mask_indices(self, num_blocks: int, num_masks: int) -> List[int]:
         # FIXME: Should we prevent adjacent blocks from being masked?
-        mask_indices = torch.multinomial(torch.ones(num_blocks), num_masks, replacement=False)
+        weights = torch.ones(num_blocks)
+        if not self._config.allow_mask_first_token:
+            weights[0] = 0
+        mask_indices = torch.multinomial(weights, num_masks, replacement=False)
         return sorted(mask_indices)
 
     def _create_masked_input(
@@ -90,17 +93,17 @@ class DocLLMTrainDataPipe(IterDataPipe):
         label_tokens: torch.LongTensor,
         num_target_tokens: int,
     ) -> Tuple[torch.LongTensor, torch.FloatTensor, torch.BoolTensor, torch.LongTensor]:
-        if text_inputs.size(0) <= self._config.max_seq_len:
+        if text_inputs.size(0) <= self._config.max_seq_length:
             return text_inputs, spatial_inputs, loss_mask, label_tokens
-        if text_inputs.size(0) - num_target_tokens + 1 >= self._config.max_seq_len:
+        if text_inputs.size(0) - num_target_tokens + 1 >= self._config.max_seq_length:
             raise ValueError(
                 f"Number of tokens ({text_inputs.size(0)}) exceeds maximal sequence "
-                f"length ({self._config.max_seq_len}) with {num_target_tokens=}. "
+                f"length ({self._config.max_seq_length}) with {num_target_tokens=}. "
                 "Nothing would be learned. Skipping..."
             )
         return (
-            text_inputs[: self._config.max_seq_len],
-            spatial_inputs[: self._config.max_seq_len],
-            loss_mask[: self._config.max_seq_len],
-            label_tokens[: self._config.max_seq_len],
+            text_inputs[: self._config.max_seq_length],
+            spatial_inputs[: self._config.max_seq_length],
+            loss_mask[: self._config.max_seq_length],
+            label_tokens[: self._config.max_seq_length],
         )
