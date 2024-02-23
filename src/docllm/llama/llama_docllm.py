@@ -95,6 +95,12 @@ class LlamaDocLLM(DocLLMLlamaPreTrainedModel):
     def set_input_embeddings(self, value):
         self.embed_tokens = value
 
+    def set_freeze_llama_layers(self, freeze: bool):
+        self.embed_tokens.requires_grad_(not freeze)
+        for layer in self.layers:
+            layer.set_freeze_llama_layers(freeze)
+        self.norm.requires_grad_(not freeze)
+
     def forward(
         self,
         input_ids: torch.LongTensor = None,

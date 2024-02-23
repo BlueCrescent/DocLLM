@@ -24,3 +24,18 @@ def test_set_input_embeddings(small_config: DocLLMLlamaConfig):
     embeddings = torch.nn.Embedding(10, 20)
     model.set_input_embeddings(embeddings)
     assert model.get_input_embeddings() == embeddings
+
+
+def test_after_freezing_llama_weights_spatial_layers_are_not_frozen(small_config: DocLLMLlamaConfig):
+    model = LlamaDocLLM(small_config)
+    model.set_freeze_llama_layers(True)
+    for name, param in model.named_parameters(recurse=True):
+        assert not param.requires_grad or "spatial" in name
+
+
+def test_after_unfreezing_llama_weights_everything_is_not_frozen(small_config: DocLLMLlamaConfig):
+    model = LlamaDocLLM(small_config)
+    model.set_freeze_llama_layers(True)
+    model.set_freeze_llama_layers(False)
+    for param in model.parameters():
+        assert param.requires_grad

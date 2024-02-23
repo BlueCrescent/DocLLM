@@ -81,3 +81,18 @@ def test_computed_q_k_v_have_expected_shape(
     assert q.shape == expected_shape
     assert k.shape == expected_shape
     assert v.shape == expected_shape
+
+
+def test_after_freezing_llama_weights_spatial_layers_are_not_frozen(config: DocLLMLlamaConfig):
+    attention = DocLLMAttention(config)
+    attention.set_freeze_llama_layers(True)
+    for name, param in attention.named_parameters(recurse=True):
+        assert not param.requires_grad or name.startswith("spatial_")
+
+
+def test_after_unfreezing_llama_weights_everything_is_not_frozen(config: DocLLMLlamaConfig):
+    attention = DocLLMAttention(config)
+    attention.set_freeze_llama_layers(True)
+    attention.set_freeze_llama_layers(False)
+    for param in attention.parameters():
+        assert param.requires_grad

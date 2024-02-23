@@ -62,3 +62,18 @@ def test_key_value_caches_are_returned(
     )
     assert present_key_value is not None
     assert spatial_present_key_value is not None
+
+
+def test_after_freezing_llama_weights_spatial_layers_are_not_frozen(config: DocLLMLlamaConfig):
+    decoder_layer = DocLLMLlamaDecoderLayer(config, layer_idx=0)
+    decoder_layer.set_freeze_llama_layers(True)
+    for name, param in decoder_layer.named_parameters(recurse=True):
+        assert not param.requires_grad or "spatial_" in name
+
+
+def test_after_unfreezing_llama_weights_everything_is_not_frozen(config: DocLLMLlamaConfig):
+    decoder_layer = DocLLMLlamaDecoderLayer(config, layer_idx=0)
+    decoder_layer.set_freeze_llama_layers(True)
+    decoder_layer.set_freeze_llama_layers(False)
+    for param in decoder_layer.parameters():
+        assert param.requires_grad

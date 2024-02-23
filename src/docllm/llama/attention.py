@@ -24,6 +24,12 @@ class DocLLMAttention(LlamaAttention):
         self._lambda_st = config.lambda_st
         self._lambda_ss = config.lambda_ss
 
+    def set_freeze_llama_layers(self, freeze: bool):
+        self.q_proj.weight.requires_grad_(not freeze)
+        self.k_proj.weight.requires_grad_(not freeze)
+        self.v_proj.weight.requires_grad_(not freeze)
+        self.o_proj.weight.requires_grad_(not freeze)
+
     def forward(
         self,
         hidden_states: Tensor,

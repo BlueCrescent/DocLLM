@@ -28,6 +28,12 @@ class DocLLMLlamaDecoderLayer(nn.Module):
         self.input_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.post_attention_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
+    def set_freeze_llama_layers(self, freeze: bool):
+        self.self_attn.set_freeze_llama_layers(freeze)
+        self.mlp.requires_grad_(not freeze)
+        self.input_layernorm.requires_grad_(not freeze)
+        self.post_attention_layernorm.requires_grad_(not freeze)
+
     def forward(
         self,
         hidden_states: torch.Tensor,
