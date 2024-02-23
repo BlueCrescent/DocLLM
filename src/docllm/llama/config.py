@@ -56,3 +56,6 @@ class DocLLMLlamaConfig(LlamaConfig):
         self.lambda_ts = lambda_ts
         self.lambda_st = lambda_st
         self.lambda_ss = lambda_ss
+
+        if self.pretraining_tp > 1:
+            raise NotImplementedError()
