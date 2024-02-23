@@ -1,3 +1,5 @@
+from typing import Optional
+
 import torch
 import torch.nn as nn
 
@@ -21,8 +23,9 @@ class DocLLMCrossEntropyLoss(nn.CrossEntropyLoss):
         )
 
     def forward(
-        self, logits: torch.FloatTensor, labels: torch.LongTensor, loss_mask: torch.BoolTensor
+        self, logits: torch.FloatTensor, labels: torch.LongTensor, loss_mask: Optional[torch.BoolTensor]
     ) -> torch.FloatTensor:
         losses = super().forward(logits.view(-1, logits.size(-1)), labels.view(-1))
-        losses = losses * loss_mask.view(-1).float()
+        if loss_mask is not None:
+            losses = losses * loss_mask.view(-1).float()
         return losses.sum()

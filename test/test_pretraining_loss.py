@@ -1,3 +1,4 @@
+import random
 from typing import Tuple
 
 import pytest
@@ -82,3 +83,19 @@ def test_loss_is_zero_with_mask_only_one_at_correct_prediction(
     mask[batch_idx][seq_idx] = 1
     result = loss(logits, labels, mask)
     assert result.item() == pytest.approx(0.0, 0.00001)
+
+
+def test_masked_result_is_same_as_result_with_ignore_index_labels(
+    loss_inputs: Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+):
+    loss = DocLLMCrossEntropyLoss(ignore_index=-100)
+    logits, labels, mask = loss_inputs
+
+    positions = random.sample(range(mask.numel()), 17)
+    mask.view(-1)[positions] = 0
+    labels_with_ignore_index = labels.clone()
+    labels_with_ignore_index.view(-1)[positions] = -100
+
+    masked_result = loss(logits, labels, mask)
+    ignore_idx_result = loss(logits, labels_with_ignore_index, None)
+    assert masked_result == ignore_idx_result
