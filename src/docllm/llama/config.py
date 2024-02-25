@@ -1,4 +1,12 @@
+from enum import Enum
+
 from transformers import LlamaConfig
+
+
+class PositionalEmbeddingMode(Enum):
+    NONE = "none"
+    TEST_ONLY = "test_only"
+    TEXT_AND_SPATIAL = "text_and_spatial"
 
 
 class DocLLMLlamaConfig(LlamaConfig):
@@ -28,6 +36,7 @@ class DocLLMLlamaConfig(LlamaConfig):
         lambda_ts: float = 1.0,
         lambda_st: float = 1.0,
         lambda_ss: float = 1.0,
+        positional_embedding_mode: PositionalEmbeddingMode = PositionalEmbeddingMode.TEXT_AND_SPATIAL,
         **kwargs,
     ):
         super().__init__(
@@ -56,6 +65,7 @@ class DocLLMLlamaConfig(LlamaConfig):
         self.lambda_ts = lambda_ts
         self.lambda_st = lambda_st
         self.lambda_ss = lambda_ss
+        self.positional_embedding_mode = positional_embedding_mode
 
         if self.pretraining_tp > 1:
             raise NotImplementedError()

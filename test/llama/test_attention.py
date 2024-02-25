@@ -5,6 +5,7 @@ import torch.nn as nn
 from transformers.cache_utils import Cache
 
 from docllm.llama import DocLLMAttention, DocLLMLlamaConfig
+from docllm.llama.config import PositionalEmbeddingMode
 
 
 def test_output_shape_is_input_shape(config: DocLLMLlamaConfig, input_sizes: InputSizes, model_inputs: ModelInputs):
@@ -71,10 +72,8 @@ def test_computed_q_k_v_have_expected_shape(
 ):
     head_dim = config.hidden_size // config.num_attention_heads
     attention = DocLLMAttention(config, layer_idx=0)
-    q_proj = nn.Linear(config.hidden_size, config.num_attention_heads * head_dim)
-    k_proj = nn.Linear(config.hidden_size, config.num_attention_heads * head_dim)
-    v_proj = nn.Linear(config.hidden_size, config.num_attention_heads * head_dim)
-    q, k, v, _, _ = attention._compute_q_k_v(
+    q_proj = k_proj = v_proj = nn.Linear(config.hidden_size, config.num_attention_heads * head_dim)
+    q, k, v, _, _, _, _ = attention._compute_q_k_v(
         model_inputs.input_embeddings, position_ids, past_key_value, q_proj, k_proj, v_proj
     )
     expected_shape = (input_sizes.batch_size, config.num_attention_heads, input_sizes.sequence_length, head_dim)
@@ -96,3 +95,19 @@ def test_after_unfreezing_llama_weights_everything_is_not_frozen(config: DocLLML
     attention.set_freeze_llama_layers(False)
     for param in attention.parameters(recurse=True):
         assert param.requires_grad
+
+
+def test_computed_q_k_v_returns_no_cos_sin_if_pos_mode_is_none(
+    config: DocLLMLlamaConfig,
+    model_inputs: ModelInputs,
+    position_ids: torch.LongTensor,
+    past_key_value: Cache,
+):
+    config.positional_embedding_mode = PositionalEmbeddingMode.NONE
+    head_dim = config.hidden_size // config.num_attention_heads
+    attention = DocLLMAttention(config, layer_idx=0)
+    q_proj = k_proj = v_proj = nn.Linear(config.hidden_size, config.num_attention_heads * head_dim)
+    _, _, _, _, _, cos, sin = attention._compute_q_k_v(
+        model_inputs.input_embeddings, position_ids, past_key_value, q_proj, k_proj, v_proj
+    )
+    assert cos is None and sin is None

@@ -7,7 +7,7 @@ from torch import LongTensor, Tensor
 from transformers.cache_utils import Cache
 from transformers.models.llama.modeling_llama import LlamaAttention, apply_rotary_pos_emb, repeat_kv
 
-from docllm.llama.config import DocLLMLlamaConfig
+from docllm.llama.config import DocLLMLlamaConfig, PositionalEmbeddingMode
 
 
 class DocLLMAttention(LlamaAttention):
@@ -23,12 +23,14 @@ class DocLLMAttention(LlamaAttention):
         self._lambda_ts = config.lambda_ts
         self._lambda_st = config.lambda_st
         self._lambda_ss = config.lambda_ss
+        self._positional_embedding_mode = config.positional_embedding_mode
 
     def set_freeze_llama_layers(self, freeze: bool):
         self.q_proj.weight.requires_grad_(not freeze)
         self.k_proj.weight.requires_grad_(not freeze)
         self.v_proj.weight.requires_grad_(not freeze)
         self.o_proj.weight.requires_grad_(not freeze)
+        self.rotary_emb.requires_grad_(not freeze)
 
     def forward(
         self,
@@ -48,6 +50,8 @@ class DocLLMAttention(LlamaAttention):
             value_states,
             past_key_value,
             kv_seq_len,
+            cos,
+            sin,
         ) = self._compute_q_k_v(
             hidden_states,
             position_ids,
@@ -57,12 +61,17 @@ class DocLLMAttention(LlamaAttention):
             self.v_proj,
         )
 
+        if self._positional_embedding_mode != PositionalEmbeddingMode.TEXT_AND_SPATIAL:
+            cos = sin = None
+
         (
             spatial_query_states,
             spatial_key_states,
             _,
             spatial_past_key_value,
             kv_seq_len,
+            _,
+            _,
         ) = self._compute_q_k_v(
             bounding_box_embeddings,
             position_ids,
@@ -70,6 +79,8 @@ class DocLLMAttention(LlamaAttention):
             self.spatial_q_proj,
             self.spatial_k_proj,
             None,
+            cos,
+            sin,
         )
 
         attn_weights_tt = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(self.head_dim)
@@ -136,7 +147,16 @@ class DocLLMAttention(LlamaAttention):
         q_proj: nn.Linear,
         k_proj: nn.Linear,
         v_proj: Optional[nn.Linear],
-    ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor], Optional[Cache], int]:
+        cos: Optional[torch.Tensor] = None,
+        sin: Optional[torch.Tensor] = None,
+    ) -> Tuple[
+        torch.Tensor,
+        torch.Tensor,
+        Optional[torch.Tensor],
+        Optional[Cache],
+        Optional[torch.Tensor],
+        Optional[torch.Tensor],
+    ]:
         bsz, q_len, _ = hidden_states.size()
 
         query_states = q_proj(hidden_states)
@@ -166,13 +186,16 @@ class DocLLMAttention(LlamaAttention):
         new_cache_positions = torch.arange(past_seen_tokens, past_seen_tokens + q_len, device=key_states.device)
         position_ids = new_cache_positions.unsqueeze(0) if position_ids is None else position_ids
 
-        if v_proj is not None:  # FIXME do we need pos embeddings for spatial modality?
+        if v_proj is not None and self._positional_embedding_mode != PositionalEmbeddingMode.NONE:
             cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
+        if cos is not None and sin is not None:
             query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
 
         if past_key_value is not None:
             cache_kwargs = (
-                {} if v_proj is None else {"sin": sin, "cos": cos, "position_ids": new_cache_positions}
+                {}
+                if cos is not None and sin is not None
+                else {"sin": sin, "cos": cos, "position_ids": new_cache_positions}
             )  # Specific to RoPE models
             key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
 
@@ -181,4 +204,4 @@ class DocLLMAttention(LlamaAttention):
         if v_proj is not None:
             value_states = repeat_kv(value_states, self.num_key_value_groups)
 
-        return query_states, key_states, value_states, past_key_value, kv_seq_len
+        return query_states, key_states, value_states, past_key_value, kv_seq_len, cos, sin
