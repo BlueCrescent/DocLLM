@@ -21,7 +21,7 @@ def multiple_docs_test_data(num_docs: int) -> List[List[Tuple[torch.LongTensor, 
         num_blocks = random.randint(4, 11)
         data = [
             (
-                torch.randint(0, 10, (seq_len := random.randint(1, 7),), dtype=torch.long),
+                torch.randint(1, 10, (seq_len := random.randint(1, 7),), dtype=torch.long),
                 torch.rand(seq_len, 4),
             )
             for _ in range(num_blocks)
