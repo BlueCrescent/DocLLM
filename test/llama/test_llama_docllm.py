@@ -37,5 +37,5 @@ def test_after_unfreezing_llama_weights_everything_is_not_frozen(small_config: D
     model = LlamaDocLLM(small_config)
     model.set_freeze_llama_layers(True)
     model.set_freeze_llama_layers(False)
-    for param in model.parameters():
+    for param in model.parameters(recurse=True):
         assert param.requires_grad

@@ -94,5 +94,5 @@ def test_after_unfreezing_llama_weights_everything_is_not_frozen(config: DocLLML
     attention = DocLLMAttention(config)
     attention.set_freeze_llama_layers(True)
     attention.set_freeze_llama_layers(False)
-    for param in attention.parameters():
+    for param in attention.parameters(recurse=True):
         assert param.requires_grad

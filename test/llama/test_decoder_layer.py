@@ -75,5 +75,5 @@ def test_after_unfreezing_llama_weights_everything_is_not_frozen(config: DocLLML
     decoder_layer = DocLLMLlamaDecoderLayer(config, layer_idx=0)
     decoder_layer.set_freeze_llama_layers(True)
     decoder_layer.set_freeze_llama_layers(False)
-    for param in decoder_layer.parameters():
+    for param in decoder_layer.parameters(recurse=True):
         assert param.requires_grad
