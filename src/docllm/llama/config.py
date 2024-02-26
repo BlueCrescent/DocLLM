@@ -1,9 +1,9 @@
-from enum import Enum
+from enum import StrEnum
 
 from transformers import LlamaConfig
 
 
-class PositionalEmbeddingMode(Enum):
+class PositionalEmbeddingMode(StrEnum):
     NONE = "none"
     TEST_ONLY = "test_only"
     TEXT_AND_SPATIAL = "text_and_spatial"
