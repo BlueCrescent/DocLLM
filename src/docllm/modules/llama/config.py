@@ -14,6 +14,7 @@ class DocLLMLlamaConfig(LlamaConfig):
     def __init__(
         self,
         vocab_size=32000,
+        additional_training_vocab_size=0,
         hidden_size=4096,
         intermediate_size=11008,
         num_hidden_layers=32,
@@ -62,6 +63,7 @@ class DocLLMLlamaConfig(LlamaConfig):
             attention_dropout,
             **kwargs,
         )
+        self.additional_training_vocab_size = additional_training_vocab_size
         self.lambda_ts = lambda_ts
         self.lambda_st = lambda_st
         self.lambda_ss = lambda_ss

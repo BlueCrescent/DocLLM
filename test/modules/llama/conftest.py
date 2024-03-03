@@ -15,7 +15,12 @@ def config() -> DocLLMLlamaConfig:
 @pytest.fixture
 def small_config() -> DocLLMLlamaConfig:
     return DocLLMLlamaConfig(
-        hidden_size=256, num_attention_heads=4, num_hidden_layers=2, intermediate_size=1024, vocab_size=320
+        hidden_size=256,
+        num_attention_heads=4,
+        num_hidden_layers=2,
+        intermediate_size=1024,
+        vocab_size=320,
+        additional_training_vocab_size=3,
     )
 
 

@@ -12,6 +12,7 @@ from transformers.modeling_outputs import BaseModelOutputWithPast, ModelOutput
 from transformers.models.llama.modeling_llama import LlamaRMSNorm
 from transformers.utils import logging
 
+from docllm.modules.additional_tokens import PartFreezableEmbedding
 from docllm.modules.llama.config import DocLLMLlamaConfig
 from docllm.modules.llama.decoder_layer import DocLLMLlamaDecoderLayer
 from docllm.modules.llama.pretrained_model import DocLLMLlamaPreTrainedModel
@@ -67,7 +68,12 @@ class LlamaDocLLM(DocLLMLlamaPreTrainedModel):
         self.padding_idx = config.pad_token_id
         self.vocab_size = config.vocab_size
 
-        self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
+        self.embed_tokens = PartFreezableEmbedding(
+            num_embeddings=config.vocab_size,
+            embedding_dim=config.hidden_size,
+            padding_idx=self.padding_idx,
+            num_additional_tokens=config.additional_training_vocab_size,
+        )
         self.embed_spatial = nn.Linear(4, config.hidden_size, bias=False)
         self.layers = nn.ModuleList(
             [DocLLMLlamaDecoderLayer(config, layer_idx) for layer_idx in range(config.num_hidden_layers)]
@@ -91,7 +97,7 @@ class LlamaDocLLM(DocLLMLlamaPreTrainedModel):
         self.embed_tokens = value
 
     def set_freeze_llama_layers(self, freeze: bool):
-        self.embed_tokens.requires_grad_(not freeze)
+        self.embed_tokens.set_freeze_original_embeddings(freeze)
         for layer in self.layers:
             layer.set_freeze_llama_layers(freeze)
         self.norm.requires_grad_(not freeze)

@@ -1,11 +1,11 @@
 import os
 from tempfile import TemporaryDirectory
+
 import torch
+from transformers import LlamaModel
 
 from docllm.modules.llama import DocLLMLlamaConfig
 from docllm.modules.llama.llama_docllm import DocLLMModelOutputWithPast, LlamaDocLLM
-
-from transformers import LlamaModel
 
 
 def test_forward(small_config: DocLLMLlamaConfig):
@@ -34,7 +34,7 @@ def test_after_freezing_llama_weights_spatial_layers_are_not_frozen(small_config
     model = LlamaDocLLM(small_config)
     model.set_freeze_llama_layers(True)
     for name, param in model.named_parameters(recurse=True):
-        assert not param.requires_grad or "spatial" in name
+        assert not param.requires_grad or "spatial" in name or "additional" in name
 
 
 def test_after_unfreezing_llama_weights_everything_is_not_frozen(small_config: DocLLMLlamaConfig):
@@ -54,7 +54,7 @@ def test_loading_llama_weights_initiates_non_spatial_weights(small_config: DocLL
         llama.save_pretrained(model_path)
         model = LlamaDocLLM.from_pretrained(model_path)
         for name, param in model.named_parameters(recurse=True):
-            assert (param == 1.0).all().item() ^ ("spatial" in name)
+            assert (param == 1.0).all().item() ^ ("spatial" in name or "additional" in name)
 
 
 def test_loading_llama_weights_does_not_touch_non_spatial_weights(small_config: DocLLMLlamaConfig):
@@ -66,4 +66,4 @@ def test_loading_llama_weights_does_not_touch_non_spatial_weights(small_config: 
         llama.save_pretrained(model_path)
         model = LlamaDocLLM.from_pretrained(model_path)
         for name, param in model.named_parameters(recurse=True):
-            assert (param != 1.0).all().item() ^ ("spatial" not in name)
+            assert (param != 1.0).all().item() ^ ("spatial" not in name and "additional" not in name)
