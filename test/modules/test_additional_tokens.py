@@ -1,15 +1,16 @@
 import os
 from tempfile import TemporaryDirectory
-import pytest
-
-import torch
-from docllm.modules.additional_tokens import PartFreezableEmbedding
 from test.modules.additional_tokens_test_helpers import (
-    EmbeddingModel,
-    PFEmbeddingModel,
     EmbeddingConfig,
+    EmbeddingModel,
     PFEmbeddingConfig,
+    PFEmbeddingModel,
 )
+
+import pytest
+import torch
+
+from docllm.modules.additional_tokens import PartFreezableEmbedding
 
 
 @pytest.fixture
@@ -111,7 +112,7 @@ def test_after_unfreezing_original_embs_everything_is_not_frozen(part_freezable_
         assert param.requires_grad
 
 
-def test_init_part_freezable_embeddings_loads_normal_embeddings():
+def test_loading_part_freezable_embeddings_loads_normal_embeddings():
     original_model = EmbeddingModel(EmbeddingConfig())
     original_model.init_weights()
     with TemporaryDirectory() as dir:
@@ -122,7 +123,7 @@ def test_init_part_freezable_embeddings_loads_normal_embeddings():
             assert (param == 1.0).all().item() ^ ("additional" in name)
 
 
-def test_init_part_freezable_embeddings_does_set_new_weights():
+def test_loading_part_freezable_embeddings_does_set_additional_weights():
     original_model = EmbeddingModel(EmbeddingConfig())
     original_model.init_weights()
     with TemporaryDirectory() as dir:
@@ -131,6 +132,11 @@ def test_init_part_freezable_embeddings_does_set_new_weights():
         model = PFEmbeddingModel.from_pretrained(model_path, config=PFEmbeddingConfig(num_additional_tokens=3))
         for name, param in model.named_parameters(recurse=True):
             assert (param == 0.0).all().item() ^ ("additional" not in name)
+
+
+def test_additional_embeddings_are_in_parameters():
+    model = PFEmbeddingModel(PFEmbeddingConfig(num_additional_tokens=3))
+    assert any("additional" in name for name, _ in model.named_parameters(recurse=True))
 
 
 def test_additional_tokens_cause_expected_additional_num_trainable_parameter():
