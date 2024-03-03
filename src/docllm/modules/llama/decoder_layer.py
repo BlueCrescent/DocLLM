@@ -7,8 +7,8 @@ from torch import Tensor
 from transformers.cache_utils import Cache
 from transformers.models.llama.modeling_llama import LlamaMLP, LlamaRMSNorm
 
-from docllm.llama.attention import DocLLMAttention
-from docllm.llama.config import DocLLMLlamaConfig
+from docllm.modules.llama.attention import DocLLMAttention
+from docllm.modules.llama.config import DocLLMLlamaConfig
 
 LLAMA_ATTENTION_CLASSES = {
     "eager": DocLLMAttention,

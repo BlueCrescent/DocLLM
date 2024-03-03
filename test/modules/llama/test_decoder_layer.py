@@ -1,9 +1,9 @@
-from test.llama.helpers import InputSizes, ModelInputs
+from test.modules.llama.helpers import InputSizes, ModelInputs
 
 import torch
 from transformers.cache_utils import Cache
 
-from docllm.llama import DocLLMLlamaConfig, DocLLMLlamaDecoderLayer
+from docllm.modules.llama import DocLLMLlamaConfig, DocLLMLlamaDecoderLayer
 
 
 def test_simple_forward_has_same_output_shape_as_input_shape(

@@ -2,10 +2,11 @@ import os
 from tempfile import TemporaryDirectory
 import torch
 
-from docllm.llama.causal_docllm import CausalDocLLMOutputWithPast, CausalLlamaDocLLM
-from docllm.llama.config import DocLLMLlamaConfig
+from docllm.modules.llama.causal_docllm import CausalDocLLMOutputWithPast, CausalLlamaDocLLM
+from docllm.modules.llama.config import DocLLMLlamaConfig
 
 from transformers import LlamaForCausalLM
+
 
 def test_initialization(small_config: DocLLMLlamaConfig):
     model = CausalLlamaDocLLM(small_config)
@@ -72,6 +73,7 @@ def test_after_unfreezing_llama_weights_everything_is_not_frozen(small_config: D
     for param in model.parameters(recurse=True):
         assert param.requires_grad
 
+
 def test_loading_llama_weights_initiates_non_spatial_weights(small_config: DocLLMLlamaConfig):
     llama = LlamaForCausalLM(small_config)
     for param in llama.parameters(recurse=True):
@@ -82,6 +84,7 @@ def test_loading_llama_weights_initiates_non_spatial_weights(small_config: DocLL
         model = CausalLlamaDocLLM.from_pretrained(model_path)
         for name, param in model.named_parameters(recurse=True):
             assert (param == 1.0).all().item() ^ ("spatial" in name)
+
 
 def test_loading_llama_weights_does_not_touch_non_spatial_weights(small_config: DocLLMLlamaConfig):
     llama = LlamaForCausalLM(small_config)

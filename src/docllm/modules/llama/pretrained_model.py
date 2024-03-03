@@ -2,7 +2,7 @@ import torch.nn as nn
 from transformers import PreTrainedModel
 from transformers.utils import add_start_docstrings
 
-from docllm.llama.config import DocLLMLlamaConfig
+from docllm.modules.llama.config import DocLLMLlamaConfig
 
 DOCLLM_LLAMA_START_DOCSTRING = r"""
     ...

@@ -1,10 +1,10 @@
-from test.llama.helpers import InputSizes, ModelInputs
+from test.modules.llama.helpers import InputSizes, ModelInputs
 
 import pytest
 import torch
 from transformers.cache_utils import Cache, DynamicCache
 
-from docllm.llama.config import DocLLMLlamaConfig
+from docllm.modules.llama.config import DocLLMLlamaConfig
 
 
 @pytest.fixture

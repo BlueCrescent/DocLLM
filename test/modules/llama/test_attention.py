@@ -1,11 +1,11 @@
-from test.llama.helpers import InputSizes, ModelInputs
+from test.modules.llama.helpers import InputSizes, ModelInputs
 
 import torch
 import torch.nn as nn
 from transformers.cache_utils import Cache
 
-from docllm.llama import DocLLMAttention, DocLLMLlamaConfig
-from docllm.llama.config import PositionalEmbeddingMode
+from docllm.modules.llama import DocLLMAttention, DocLLMLlamaConfig
+from docllm.modules.llama.config import PositionalEmbeddingMode
 
 
 def test_output_shape_is_input_shape(config: DocLLMLlamaConfig, input_sizes: InputSizes, model_inputs: ModelInputs):

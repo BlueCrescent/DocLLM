@@ -7,7 +7,7 @@ from torch import LongTensor, Tensor
 from transformers.cache_utils import Cache
 from transformers.models.llama.modeling_llama import LlamaAttention, apply_rotary_pos_emb, repeat_kv
 
-from docllm.llama.config import DocLLMLlamaConfig, PositionalEmbeddingMode
+from docllm.modules.llama.config import DocLLMLlamaConfig, PositionalEmbeddingMode
 
 
 class DocLLMAttention(LlamaAttention):

@@ -7,9 +7,9 @@ import torch.nn.functional as F
 from transformers.cache_utils import Cache
 from transformers.modeling_outputs import ModelOutput
 
-from docllm.llama.config import DocLLMLlamaConfig
-from docllm.llama.llama_docllm import LlamaDocLLM
-from docllm.llama.pretrained_model import DocLLMLlamaPreTrainedModel
+from docllm.modules.llama.config import DocLLMLlamaConfig
+from docllm.modules.llama.llama_docllm import LlamaDocLLM
+from docllm.modules.llama.pretrained_model import DocLLMLlamaPreTrainedModel
 from docllm.pretraining_loss import DocLLMCrossEntropyLoss
 
 
