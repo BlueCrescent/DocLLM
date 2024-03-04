@@ -61,37 +61,3 @@ class PartFreezableEmbedding(nn.Embedding):
             add_embeddings = self.additional_embeddings(input[add_token_mask])
             embeddings.view(-1, self.embedding_dim)[add_token_mask.view(-1)] = add_embeddings
         return embeddings
-
-
-class PartFreezableLinear(nn.Linear):
-    def __init__(
-        self,
-        in_features: int,
-        out_features: int,
-        bias: bool = True,
-        num_additional_outputs: int = 0,
-    ) -> None:
-        super().__init__(
-            in_features=in_features,
-            out_features=out_features,
-            bias=bias,
-        )
-        self._num_additional_outputs = num_additional_outputs
-        if self._num_additional_outputs > 0:
-            self._additional_outputs = nn.Linear(
-                in_features=in_features,
-                out_features=self._num_additional_outputs,
-                bias=bias,
-            )
-
-    def set_freeze_original_outputs(self, freeze: bool):
-        self.requires_grad_(not freeze)
-        if self._num_additional_outputs > 0:
-            self._additional_outputs.requires_grad_(True)
-
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
-        output = super().forward(input)
-        if self._num_additional_outputs > 0:
-            additional_output = self._additional_outputs(input)
-            output = torch.cat([output, additional_output], dim=-1)
-        return output

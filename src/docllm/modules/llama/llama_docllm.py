@@ -12,10 +12,10 @@ from transformers.modeling_outputs import BaseModelOutputWithPast, ModelOutput
 from transformers.models.llama.modeling_llama import LlamaRMSNorm
 from transformers.utils import logging
 
-from docllm.modules.additional_tokens import PartFreezableEmbedding
 from docllm.modules.llama.config import DocLLMLlamaConfig
 from docllm.modules.llama.decoder_layer import DocLLMLlamaDecoderLayer
 from docllm.modules.llama.pretrained_model import DocLLMLlamaPreTrainedModel
+from docllm.modules.part_freezable_embedding import PartFreezableEmbedding
 
 logger = logging.get_logger(__name__)
 
