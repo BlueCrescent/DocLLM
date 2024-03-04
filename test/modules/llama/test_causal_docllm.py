@@ -26,7 +26,11 @@ def test_forward_result_has_expected_logits_shape(small_config: DocLLMLlamaConfi
     input_ids = torch.tensor([[1, 2, 3]])
     coordinates = torch.tensor([[[0.1, 0.0, 0.4, 1.0], [0.2, 0.1, 0.3, 0.2], [0.3, 0.2, 0.2, 0.3]]])
     output = model.forward(input_ids, coordinates)
-    assert output.logits.shape == (input_ids.shape[0], input_ids.shape[1], small_config.vocab_size)
+    assert output.logits.shape == (
+        input_ids.shape[0],
+        input_ids.shape[1],
+        small_config.vocab_size + small_config.additional_training_vocab_size,
+    )
 
 
 def test_loss_result_has_expected_shape(small_config: DocLLMLlamaConfig):

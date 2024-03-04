@@ -1,15 +1,14 @@
 from dataclasses import dataclass
-from typing import List, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from transformers.cache_utils import Cache
 from transformers.modeling_outputs import ModelOutput
 
 from docllm.modules.llama.config import DocLLMLlamaConfig
 from docllm.modules.llama.llama_docllm import LlamaDocLLM
 from docllm.modules.llama.pretrained_model import DocLLMLlamaPreTrainedModel
+from docllm.modules.part_freezable_linear import PartFreezableLinear
 from docllm.pretraining_loss import DocLLMCrossEntropyLoss
 
 
@@ -53,7 +52,12 @@ class CausalLlamaDocLLM(DocLLMLlamaPreTrainedModel):
         super().__init__(config)
         self.model = LlamaDocLLM(config)
         self.vocab_size = config.vocab_size
-        self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+        self.lm_head = PartFreezableLinear(
+            config.hidden_size,
+            config.vocab_size,
+            bias=False,
+            num_additional_outputs=config.additional_training_vocab_size,
+        )
 
         # Initialize weights and apply final processing
         self.post_init()
