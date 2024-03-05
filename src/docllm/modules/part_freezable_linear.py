@@ -50,6 +50,20 @@ class PartFreezableLinear(nn.Linear):
         if self._num_additional_outputs > 0:
             self._additional_outputs.requires_grad_(True)
 
+    @torch.no_grad()
+    def fuse_additional_outputs(self):
+        """
+        Fuses the additional outputs with the original outputs.
+        Afterwards, the additional outputs will be removed.
+        """
+        if self._num_additional_outputs > 0:
+            self.weight = nn.Parameter(torch.cat([self.weight, self._additional_outputs.weight], dim=0))
+            if self.bias is not None:
+                self.bias = nn.Parameter(torch.cat([self.bias, self._additional_outputs.bias], dim=0))
+            self.out_features += self._num_additional_outputs
+            self._num_additional_outputs = 0
+            del self._additional_outputs
+
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         """
         Performs forward pass of the linear layer.

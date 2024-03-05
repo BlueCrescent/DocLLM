@@ -135,3 +135,22 @@ def test_freezing_original_linear_weights_leaves_remaining_num_additional_traina
     model.linear.set_freeze_original_outputs(True)
     new_num_params = model.num_parameters(only_trainable=True)
     assert new_num_params == (config.in_features + 1) * config.num_additional_outputs
+
+
+def test_fusing_additional_outputs_removes_additional_outputs(part_freezable_linear: PartFreezableLinear):
+    part_freezable_linear.fuse_additional_outputs()
+    for name, _ in part_freezable_linear.named_parameters(recurse=True):
+        assert "additional" not in name
+
+
+def test_fusing_additional_outputs_sets_num_additional_outputs_to_zero(part_freezable_linear: PartFreezableLinear):
+    part_freezable_linear.fuse_additional_outputs()
+    assert part_freezable_linear._num_additional_outputs == 0
+
+
+def test_after_fusing_additional_outputs_results_are_same(part_freezable_linear: PartFreezableLinear, in_features: int):
+    input = torch.rand((2, 3, in_features))
+    output = part_freezable_linear(input)
+    part_freezable_linear.fuse_additional_outputs()
+    fused_output = part_freezable_linear(input)
+    assert torch.allclose(output, fused_output)
