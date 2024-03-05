@@ -66,6 +66,13 @@ class CausalLlamaDocLLM(DocLLMLlamaPreTrainedModel):
         self.lm_head.requires_grad_(not freeze)
         self.model.set_freeze_llama_layers(freeze)
 
+    @torch.no_grad()
+    def fuse_additional_embeddings(self):
+        self.lm_head.fuse_additional_outputs()
+        self.model.fuse_additional_embeddings()
+        self.config.vocab_size = self.lm_head.out_features
+        self.config.additional_training_vocab_size = 0
+
     def forward(
         self,
         input_ids: torch.LongTensor = None,

@@ -102,6 +102,12 @@ class LlamaDocLLM(DocLLMLlamaPreTrainedModel):
             layer.set_freeze_llama_layers(freeze)
         self.norm.requires_grad_(not freeze)
 
+    @torch.no_grad()
+    def fuse_additional_embeddings(self):
+        self.embed_tokens.fuse_additional_embeddings()
+        self.config.vocab_size = self.embed_tokens.num_embeddings
+        self.config.additional_training_vocab_size = 0
+
     def forward(
         self,
         input_ids: torch.LongTensor = None,
