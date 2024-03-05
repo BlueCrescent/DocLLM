@@ -52,6 +52,14 @@ class PartFreezableEmbedding(nn.Embedding):
         if self._num_additional_tokens > 0:
             self.additional_embeddings.requires_grad_(True)
 
+    @torch.no_grad()
+    def fuse_additional_embeddings(self):
+        if self._num_additional_tokens > 0:
+            self.weight = nn.Parameter(torch.cat([self.weight, self.additional_embeddings.weight], dim=0))
+            self.num_embeddings += self._num_additional_tokens
+            self._num_additional_tokens = 0
+            del self.additional_embeddings
+
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         input = input.clone()
         add_token_mask = input >= self.num_embeddings

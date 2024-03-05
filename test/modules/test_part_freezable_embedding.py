@@ -156,3 +156,36 @@ def test_freezing_original_embedding_weights_leaves_remaining_num_additional_tra
     model.emb.set_freeze_original_embeddings(True)
     new_num_params = model.num_parameters(only_trainable=True)
     assert new_num_params == config.num_additional_tokens * config.embedding_dim
+
+
+def test_fusing_additional_embeddings_removes_additional_embeddings(part_freezable_emb: PartFreezableEmbedding):
+    part_freezable_emb.fuse_additional_embeddings()
+    for name, _ in part_freezable_emb.named_parameters(recurse=True):
+        assert "additional" not in name
+
+
+def test_fusing_additional_embeddings_sets_num_additional_embeddings_to_zero(
+    part_freezable_emb: PartFreezableEmbedding,
+):
+    part_freezable_emb.fuse_additional_embeddings()
+    assert part_freezable_emb._num_additional_tokens == 0
+
+
+def test_after_fusing_additional_embeddings_results_for_original_tokens_are_same(
+    part_freezable_emb: PartFreezableEmbedding, num_embeddings: int
+):
+    input = torch.randint(0, num_embeddings, (2, 3))
+    output = part_freezable_emb(input)
+    part_freezable_emb.fuse_additional_embeddings()
+    fused_output = part_freezable_emb(input)
+    assert torch.allclose(output, fused_output)
+
+
+def test_after_fusing_additional_embeddings_results_for_new_tokens_are_same(
+    part_freezable_emb: PartFreezableEmbedding, num_embeddings: int, num_additional_tokens: int
+):
+    input = torch.randint(num_embeddings, num_embeddings + num_additional_tokens, (2, 3))
+    output = part_freezable_emb(input)
+    part_freezable_emb.fuse_additional_embeddings()
+    fused_output = part_freezable_emb(input)
+    assert torch.allclose(output, fused_output)
