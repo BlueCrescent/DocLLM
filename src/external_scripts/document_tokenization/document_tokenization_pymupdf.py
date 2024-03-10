@@ -19,7 +19,7 @@ def main(args: List[str]):
     pdf_path = args[1]
     pdf_file_base = os.path.splitext(os.path.basename(pdf_path))[0]
     output_dir = args[2]
-    tokenizer_name_or_path = "VAGOsolutions/SauerkrautLM-7b-v1" if len(args) < 4 else args[3]
+    tokenizer_name_or_path = "LeoLM/leo-hessianai-7b" if len(args) < 4 else args[3]
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name_or_path, legacy=True, add_bos_token=False)
 
     doc = parse_doc_from_pdf_path(pdf_path, tokenizer)
