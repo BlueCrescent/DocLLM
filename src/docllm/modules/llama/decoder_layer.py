@@ -38,16 +38,19 @@ class DocLLMLlamaDecoderLayer(nn.Module):
         self,
         hidden_states: torch.Tensor,
         bounding_box_embeddings: Tensor,
+        position_ids: torch.LongTensor,
         attention_mask: Optional[torch.Tensor] = None,
-        position_ids: Optional[torch.LongTensor] = None,
         past_key_value: Optional[Cache] = None,
         spatial_past_key_value: Optional[Cache] = None,
         output_attentions: Optional[bool] = False,
+        cache_position: Optional[torch.LongTensor] = None,
         **kwargs,
     ) -> Tuple[torch.FloatTensor, Optional[torch.FloatTensor], Optional[Cache], Optional[Cache]]:
         """
         Args:
             hidden_states (`torch.FloatTensor`): input to the layer of shape `(batch, seq_len, embed_dim)`
+            bounding_box_embeddings (`torch.FloatTensor`): bounding box embeddings of shape `(batch, seq_len, embed_dim)`
+            position_ids (`torch.LongTensor`): position ids of shape `(batch, seq_len)`
             attention_mask (`torch.FloatTensor`, *optional*):
                 attention mask of size `(batch_size, sequence_length)` if flash attention is used or `(batch_size, 1,
                 query_sequence_length, key_sequence_length)` if default attention is used.
@@ -75,11 +78,12 @@ class DocLLMLlamaDecoderLayer(nn.Module):
         ) = self.self_attn(
             hidden_states=hidden_states,
             bounding_box_embeddings=bounding_box_embeddings,
-            attention_mask=attention_mask,
             position_ids=position_ids,
+            attention_mask=attention_mask,
             past_key_value=past_key_value,
             spatial_past_key_value=spatial_past_key_value,
             output_attentions=output_attentions,
+            cache_position=cache_position,
             **kwargs,
         )
         hidden_states = residual + hidden_states
