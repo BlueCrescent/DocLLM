@@ -21,8 +21,8 @@ def multiple_docs_test_data(num_docs: int) -> List[List[Tuple[torch.LongTensor, 
         num_blocks = random.randint(4, 11)
         data = [
             (
-                torch.randint(1, 10, (seq_len := random.randint(1, 7),), dtype=torch.long),
-                torch.rand(seq_len, 4),
+                torch.randint(1, 10, (block_len := random.randint(1, 7),), dtype=torch.long),
+                torch.rand(block_len, 4),
             )
             for _ in range(num_blocks)
         ]
@@ -85,14 +85,23 @@ def max_percentage_masked_blocks(request) -> float:
 
 
 @pytest.fixture
+def use_sharding_filter(request) -> float:
+    if not hasattr(request, "param") or request.param is None:
+        return False
+    return request.param
+
+
+@pytest.fixture
 def pretraining_config(
     batch_size: int,
+    use_sharding_filter: bool,
     max_sequence_length: int,
     num_masked_blocks: NumMaskedBlocksType,
     max_percentage_masked_blocks: float,
 ) -> DocLLMPreTrainDataConfig:
     return DocLLMPreTrainDataConfig(
         batch_size=batch_size,
+        use_sharding_filter=use_sharding_filter,
         max_seq_length=max_sequence_length,
         num_masked_blocks=num_masked_blocks,
         max_percentage_masked_blocks=max_percentage_masked_blocks,

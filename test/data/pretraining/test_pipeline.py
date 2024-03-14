@@ -1,8 +1,9 @@
+import math
 from typing import List, Tuple
 
 import pytest
 import torch
-from torch.utils.data import IterDataPipe
+from torch.utils.data import DataLoader, IterDataPipe
 
 from docllm.data.pretraining.config import DocLLMPreTrainDataConfig
 from docllm.data.pretraining.pipeline import build_docllm_datapipeline
@@ -32,7 +33,6 @@ def test_initialization(pipeline: IterDataPipe):
 
 
 def test_datapipe_produces_expected_number_of_document_results(pipeline: IterDataPipe, num_docs: int):
-    # FIXME fails sometimes because sequence length is to long
     assert len(list(pipeline)) == num_docs
 
 
@@ -68,3 +68,43 @@ def test_datapipe_tensors_have_length_batch_size(
     for batch_start_idx, res in zip(range(0, len(multiple_docs_test_data), batch_size), pipeline):
         effective_batch_size = min(batch_size, len(multiple_docs_test_data) - batch_start_idx)
         assert all(r.size(0) == effective_batch_size for r in res)
+
+
+def test_datapipe_in_dataloader_loads_expected_number_of_files(
+    pipeline: IterDataPipe,
+    multiple_docs_test_data: List[List[Tuple[torch.LongTensor, torch.FloatTensor]]],
+):
+    dataloader = DataLoader(pipeline, batch_size=None, num_workers=0)
+    assert len(list(dataloader)) == len(multiple_docs_test_data)
+
+
+@pytest.mark.parametrize("use_sharding_filter", (True,), indirect=True)
+def test_datapipe_in_dataloader_with_multiple_workers_loads_expected_number_of_files(
+    pipeline: IterDataPipe,
+    multiple_docs_test_data: List[List[Tuple[torch.LongTensor, torch.FloatTensor]]],
+):
+    dataloader = DataLoader(pipeline, batch_size=None, num_workers=4)
+    assert len(list(dataloader)) == len(multiple_docs_test_data)
+
+
+@pytest.mark.parametrize("use_sharding_filter,batch_size", ((True, 2), (True, 4)), indirect=True)
+def test_datapipe_with_batch_size_in_dataloader_with_single_workers_loads_expected_number_of_files(
+    pipeline: IterDataPipe,
+    multiple_docs_test_data: List[List[Tuple[torch.LongTensor, torch.FloatTensor]]],
+    batch_size: int,
+):
+    dataloader = DataLoader(pipeline, batch_size=None, num_workers=0)
+    data = list(dataloader)
+    assert len(data) == math.ceil(len(multiple_docs_test_data) / batch_size)
+
+
+@pytest.mark.parametrize("use_sharding_filter,batch_size", ((True, 2), (True, 4)), indirect=True)
+def test_datapipe_with_batch_size_in_dataloader_with_multiple_workers_loads_expected_number_of_files(
+    pipeline: IterDataPipe,
+    multiple_docs_test_data: List[List[Tuple[torch.LongTensor, torch.FloatTensor]]],
+    batch_size: int,
+):
+    dataloader = DataLoader(pipeline, batch_size=None, num_workers=2)
+    data = list(dataloader)
+    # Note: More batches than expected are produced because multiple workers produce multiple partial batches
+    assert len(data) == math.ceil(len(multiple_docs_test_data) / batch_size) + 1

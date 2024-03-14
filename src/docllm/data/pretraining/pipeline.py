@@ -1,4 +1,5 @@
-from typing import List, Tuple, Type
+from functools import partial
+from typing import List, Tuple
 
 import torch
 from torch.utils.data import DataChunk, IterDataPipe
@@ -8,7 +9,6 @@ from docllm.data.pretraining.config import DocLLMPreTrainDataConfig
 
 
 def build_docllm_datapipeline(config: DocLLMPreTrainDataConfig) -> IterDataPipe:
-    batch_wrapper_class = _build_batch_with_padding_wrapper_class(config.padding_value)
     datapipe = FileLister(config.directory, masks="*.pt", recursive=True)
     if config.shuffle:
         datapipe = datapipe.shuffle(buffer_size=config.shuffle_buffer_size)
@@ -21,21 +21,20 @@ def build_docllm_datapipeline(config: DocLLMPreTrainDataConfig) -> IterDataPipe:
     datapipe = datapipe.batch(
         config.batch_size,
         drop_last=config.drop_last_batch_if_not_full,
-        wrapper_class=batch_wrapper_class,
+        wrapper_class=partial(BatchWithPaddingWrapperClass, padding_value=config.padding_value),
     )
     return datapipe
 
 
-def _build_batch_with_padding_wrapper_class(padding_value: float) -> Type[DataChunk]:
-    class BatchWithPaddingWrapperClass(DataChunk):
-        _padding_value = padding_value
-
-        def __init__(self, items: List[Tuple[torch.LongTensor, torch.FloatTensor, torch.BoolTensor, torch.LongTensor]]):
-            inputs, bboxes, mask, labels = zip(*items)
-            input_batch = torch.nn.utils.rnn.pad_sequence(inputs, batch_first=True, padding_value=self._padding_value)
-            bbox_batch = torch.nn.utils.rnn.pad_sequence(bboxes, batch_first=True, padding_value=self._padding_value)
-            mask_batch = torch.nn.utils.rnn.pad_sequence(mask, batch_first=True, padding_value=self._padding_value)
-            labels_batch = torch.nn.utils.rnn.pad_sequence(labels, batch_first=True, padding_value=self._padding_value)
-            super().__init__([input_batch, bbox_batch, mask_batch, labels_batch])
-
-    return BatchWithPaddingWrapperClass
+class BatchWithPaddingWrapperClass(DataChunk):
+    def __init__(
+        self,
+        items: List[Tuple[torch.LongTensor, torch.FloatTensor, torch.BoolTensor, torch.LongTensor]],
+        padding_value: float,
+    ):
+        inputs, bboxes, mask, labels = zip(*items)
+        input_batch = torch.nn.utils.rnn.pad_sequence(inputs, batch_first=True, padding_value=padding_value)
+        bbox_batch = torch.nn.utils.rnn.pad_sequence(bboxes, batch_first=True, padding_value=padding_value)
+        mask_batch = torch.nn.utils.rnn.pad_sequence(mask, batch_first=True, padding_value=padding_value)
+        labels_batch = torch.nn.utils.rnn.pad_sequence(labels, batch_first=True, padding_value=padding_value)
+        super().__init__([input_batch, bbox_batch, mask_batch, labels_batch])
