@@ -36,13 +36,22 @@ class Block(BaseModel):
     lines: List[Line]
     bbox: Rect
 
+    def get_text(self) -> str:
+        return "\n".join(line.text for line in self.lines)
+
 
 class Page(BaseModel):
     blocks: List[Block]
     width: Coord
     height: Coord
 
+    def get_text(self, block_separator: str = "\n") -> str:
+        return block_separator.join(block.get_text() for block in self.blocks)
+
 
 class Document(BaseModel):
     pages: List[Page]
     filename: str
+
+    def get_text(self, page: int, block_separator: str = "\n") -> str:
+        return self.pages[page].get_text(block_separator=block_separator)
