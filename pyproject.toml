@@ -4,9 +4,10 @@ version = "0.1.0"
 requires-python = ">=3.11,<3.12"
 description = "DocLLM implementation"
 dependencies = [
-    # torch,
-    # transformers,
-    # pydantic,
+    "torch",
+    "transformers==4.38.2",
+    "pydantic",
+    "sentencepiece",
 ]
 
 [project.optional-dependencies]
