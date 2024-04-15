@@ -89,8 +89,8 @@ def test_produces_correct_input_tensor_shapes(
     num_tokens_in_docs: List[int],
     pretraining_config: DocLLMPreTrainDataConfig,
 ):
-    num_masks_values, docllm_train_data_pipe._get_num_masks = extract_return_value(
-        docllm_train_data_pipe._get_num_masks
+    num_masks_values, docllm_train_data_pipe._masker._get_num_masks = extract_return_value(
+        docllm_train_data_pipe._masker._get_num_masks
     )
     count_bos_tokens = 1 if pretraining_config.bos_text_token else 0
     for (input_tensor, _, _, _), num_tokens, num_masks in zip(
@@ -104,8 +104,8 @@ def test_produces_correct_spatial_input_tensor_shapes(
     num_tokens_in_docs: List[int],
     pretraining_config: DocLLMPreTrainDataConfig,
 ):
-    num_masks_values, docllm_train_data_pipe._get_num_masks = extract_return_value(
-        docllm_train_data_pipe._get_num_masks
+    num_masks_values, docllm_train_data_pipe._masker._get_num_masks = extract_return_value(
+        docllm_train_data_pipe._masker._get_num_masks
     )
     count_bos_tokens = 1 if pretraining_config.bos_text_token else 0
     for (_, spatial_input, _, _), num_tokens, num_masks in zip(
@@ -119,8 +119,8 @@ def test_produces_correct_loss_mask_shapes(
     num_tokens_in_docs: List[int],
     pretraining_config: DocLLMPreTrainDataConfig,
 ):
-    num_masks_values, docllm_train_data_pipe._get_num_masks = extract_return_value(
-        docllm_train_data_pipe._get_num_masks
+    num_masks_values, docllm_train_data_pipe._masker._get_num_masks = extract_return_value(
+        docllm_train_data_pipe._masker._get_num_masks
     )
     count_bos_tokens = 1 if pretraining_config.bos_text_token else 0
     for (_, _, loss_mask, _), num_tokens, num_masks in zip(
@@ -134,8 +134,8 @@ def test_produces_correct_label_tensor_shapes(
     num_tokens_in_docs: List[int],
     pretraining_config: DocLLMPreTrainDataConfig,
 ):
-    num_masks_values, docllm_train_data_pipe._get_num_masks = extract_return_value(
-        docllm_train_data_pipe._get_num_masks
+    num_masks_values, docllm_train_data_pipe._masker._get_num_masks = extract_return_value(
+        docllm_train_data_pipe._masker._get_num_masks
     )
     count_bos_tokens = 1 if pretraining_config.bos_text_token else 0
     for (_, _, _, label_tensor), num_tokens, num_masks in zip(
@@ -145,22 +145,12 @@ def test_produces_correct_label_tensor_shapes(
 
 
 def test_produces_correct_loss_mask_values(docllm_train_data_pipe: DocLLMTrainDataPipe):
-    extraction_results, docllm_train_data_pipe._extract_masked_tokens = extract_return_value(
-        docllm_train_data_pipe._extract_masked_tokens
+    extraction_results, docllm_train_data_pipe._masker._extract_masked_tokens = extract_return_value(
+        docllm_train_data_pipe._masker._extract_masked_tokens
     )
     for (_, _, loss_mask, _), (_, _, target_tokens, _) in zip(docllm_train_data_pipe, extraction_results):
         len_masked_to_one = sum(t.size(0) for t in target_tokens)
         assert not loss_mask[:-len_masked_to_one].any() and loss_mask[-len_masked_to_one:].all()
-
-
-def test_get_mask_indices():
-    train_data_pipe = DocLLMTrainDataPipe(MagicMock(), MagicMock(spec=DocLLMPreTrainDataConfig))
-    num_blocks = 10
-    num_masks = 4
-    for _ in range(20):
-        result = train_data_pipe._get_mask_indices(num_blocks, num_masks)
-        assert len(result) == num_masks
-        assert all(0 <= index < num_blocks for index in result)
 
 
 @pytest.mark.parametrize("num_masked_blocks,max_percentage_masked_blocks", [(1.0, 1.0)], indirect=True)
