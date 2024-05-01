@@ -15,7 +15,7 @@ class DocLLMTrainDataPipe(IterDataPipe):
         self._masker = DocLLMPretrainingMasker(config)
         self._source_datapipe = source_datapipe
 
-    def __iter__(self) -> Iterable[Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.LongTensor]]:
+    def __iter__(self) -> Iterable[Tuple[torch.Tensor, torch.Tensor, torch.BoolTensor, torch.LongTensor]]:
         for input_tensors, bbox_tensors in self._source_datapipe:
             yield from self._try_build_inputs(input_tensors, bbox_tensors)
 

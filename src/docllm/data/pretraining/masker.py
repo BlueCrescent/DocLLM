@@ -20,7 +20,7 @@ class DocLLMPretrainingMasker:
 
     def __call__(
         self, input_tensors: List[torch.LongTensor], bbox_tensors: List[torch.FloatTensor]
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.LongTensor]:
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.BoolTensor, torch.LongTensor]:
         num_blocks = len(input_tensors)
         num_masks = self._get_valid_nun_masks(num_blocks)
         mask_indices = self._get_mask_indices(num_blocks, num_masks)
