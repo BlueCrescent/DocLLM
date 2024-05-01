@@ -114,3 +114,12 @@ def pretraining_config(
         bos_bbox_token=(0.0, 0.0, 0.0, 0.0),
         directory="",
     )
+
+
+@pytest.fixture
+def pretraining_config_with_input_dir(
+    pretraining_config: DocLLMPreTrainDataConfig, input_dir_with_data: str
+) -> DocLLMPreTrainDataConfig:
+    pretraining_config = pretraining_config.model_copy()
+    pretraining_config.directory = input_dir_with_data
+    return pretraining_config

@@ -15,15 +15,6 @@ def num_batches(num_docs: int, batch_size: int) -> int:
 
 
 @pytest.fixture
-def pretraining_config_with_input_dir(
-    pretraining_config: DocLLMPreTrainDataConfig, input_dir_with_data: str
-) -> DocLLMPreTrainDataConfig:
-    pretraining_config = pretraining_config.model_copy()
-    pretraining_config.directory = input_dir_with_data
-    return pretraining_config
-
-
-@pytest.fixture
 def pipeline(pretraining_config_with_input_dir: DocLLMPreTrainDataConfig) -> IterDataPipe:
     return build_docllm_datapipeline(pretraining_config_with_input_dir)
 
@@ -33,6 +24,7 @@ def test_initialization(pipeline: IterDataPipe):
 
 
 def test_datapipe_produces_expected_number_of_document_results(pipeline: IterDataPipe, num_docs: int):
+    # FIXME fails sometimes because sequence length is to long
     assert len(list(pipeline)) == num_docs
 
 
