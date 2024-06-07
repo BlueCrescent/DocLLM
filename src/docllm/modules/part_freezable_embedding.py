@@ -1,3 +1,5 @@
+from typing import Callable
+
 import torch
 import torch.nn as nn
 
@@ -51,6 +53,11 @@ class PartFreezableEmbedding(nn.Embedding):
         self.requires_grad_(not freeze)
         if self._num_additional_tokens > 0:
             self.additional_embeddings.requires_grad_(True)
+
+    @torch.no_grad()
+    def init_additional_embeddings(self, init_func: Callable[[torch.Tensor], None] = torch.nn.init.xavier_normal_):
+        if self._num_additional_tokens > 0:
+            init_func(self.additional_embeddings.weight)
 
     @torch.no_grad()
     def fuse_additional_embeddings(self):

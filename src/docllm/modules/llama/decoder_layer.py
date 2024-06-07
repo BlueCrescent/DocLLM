@@ -1,5 +1,5 @@
 import warnings
-from typing import Optional, Tuple
+from typing import Callable, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -33,6 +33,10 @@ class DocLLMLlamaDecoderLayer(nn.Module):
         self.mlp.requires_grad_(not freeze)
         self.input_layernorm.requires_grad_(not freeze)
         self.post_attention_layernorm.requires_grad_(not freeze)
+
+    @torch.no_grad()
+    def init_additional_weights(self, init_func: Callable[[torch.Tensor], None] = torch.nn.init.xavier_normal_):
+        self.self_attn.init_additional_weights(init_func)
 
     def forward(
         self,

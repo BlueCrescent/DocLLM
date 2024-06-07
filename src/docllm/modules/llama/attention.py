@@ -1,5 +1,5 @@
 import math
-from typing import Optional, Tuple
+from typing import Callable, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -17,9 +17,6 @@ class DocLLMAttention(LlamaAttention):
         super().__init__(config, layer_idx)
         self.spatial_q_proj = nn.Linear(self.hidden_size, self.num_heads * self.head_dim, bias=False)
         self.spatial_k_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=False)
-        # self.spatial_v_proj = nn.Linear(
-        #     self.hidden_size, self.num_key_value_heads * self.head_dim, bias=False
-        # )
         self._lambda_ts = config.lambda_ts
         self._lambda_st = config.lambda_st
         self._lambda_ss = config.lambda_ss
@@ -31,6 +28,11 @@ class DocLLMAttention(LlamaAttention):
         self.v_proj.weight.requires_grad_(not freeze)
         self.o_proj.weight.requires_grad_(not freeze)
         self.rotary_emb.requires_grad_(not freeze)
+
+    @torch.no_grad()
+    def init_additional_weights(self, init_func: Callable[[torch.Tensor], None] = torch.nn.init.xavier_normal_):
+        init_func(self.spatial_q_proj.weight)
+        init_func(self.spatial_k_proj.weight)
 
     def forward(
         self,

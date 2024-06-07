@@ -1,13 +1,9 @@
 from dataclasses import dataclass
-from typing import List, Optional, Tuple, Union
+from typing import Callable, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
 from transformers.cache_utils import Cache, DynamicCache, StaticCache
-from transformers.modeling_attn_mask_utils import (
-    _prepare_4d_causal_attention_mask,
-    _prepare_4d_causal_attention_mask_for_sdpa,
-)
 from transformers.modeling_outputs import BaseModelOutputWithPast, ModelOutput
 from transformers.models.llama.modeling_llama import LlamaRMSNorm
 from transformers.utils import logging
@@ -101,6 +97,12 @@ class LlamaDocLLM(DocLLMLlamaPreTrainedModel):
         for layer in self.layers:
             layer.set_freeze_llama_layers(freeze)
         self.norm.requires_grad_(not freeze)
+
+    @torch.no_grad()
+    def init_additional_weights(self, init_func: Callable[[torch.Tensor], None] = torch.nn.init.xavier_normal_):
+        self.embed_tokens.init_additional_embeddings(init_func)
+        for layer in self.layers:
+            layer.init_additional_weights(init_func)
 
     @torch.no_grad()
     def fuse_additional_embeddings(self):

@@ -1,3 +1,5 @@
+from typing import Callable
+
 import torch
 import torch.nn as nn
 
@@ -49,6 +51,16 @@ class PartFreezableLinear(nn.Linear):
         self.requires_grad_(not freeze)
         if self._num_additional_outputs > 0:
             self._additional_outputs.requires_grad_(True)
+
+    @torch.no_grad()
+    def init_additional_outputs(self, init_func: Callable[[torch.Tensor], None] = torch.nn.init.xavier_normal_):
+        """
+        Initializes the additional outputs.
+        """
+        if self._num_additional_outputs > 0:
+            init_func(self._additional_outputs.weight)
+            if self.bias is not None:
+                torch.nn.init.zeros_(self._additional_outputs.bias)
 
     @torch.no_grad()
     def fuse_additional_outputs(self):

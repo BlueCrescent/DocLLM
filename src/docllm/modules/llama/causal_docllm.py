@@ -1,5 +1,6 @@
+from copy import deepcopy
 from dataclasses import dataclass
-from typing import Optional, Tuple, Union
+from typing import Callable, Optional, Tuple, Union
 
 import torch
 from transformers.cache_utils import Cache
@@ -49,6 +50,7 @@ class CausalDocLLMOutputWithPast(ModelOutput):
 
 class CausalLlamaDocLLM(DocLLMLlamaPreTrainedModel):
     def __init__(self, config: DocLLMLlamaConfig):
+        config = deepcopy(config)
         super().__init__(config)
         self.model = LlamaDocLLM(config)
         self.vocab_size = config.vocab_size
@@ -65,6 +67,11 @@ class CausalLlamaDocLLM(DocLLMLlamaPreTrainedModel):
     def set_freeze_llama_layers(self, freeze: bool):
         self.lm_head.requires_grad_(not freeze)
         self.model.set_freeze_llama_layers(freeze)
+
+    @torch.no_grad()
+    def init_additional_weights(self, init_func: Callable[[torch.Tensor], None] = torch.nn.init.xavier_normal_):
+        self.lm_head.init_additional_outputs(init_func)
+        self.model.init_additional_weights(init_func)
 
     @torch.no_grad()
     def fuse_additional_embeddings(self):
