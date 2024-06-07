@@ -1,6 +1,6 @@
 import os
 from glob import glob
-from typing import List, Tuple
+from typing import Iterable, List, Tuple
 
 import torch
 from torch.utils.data import Dataset
@@ -10,9 +10,11 @@ from docllm.data.pretraining.masker import DocLLMPretrainingMasker
 
 
 class DocLLMPretrainDataset(Dataset):
-    def __init__(self, config: DocLLMPreTrainDataConfig):
+    def __init__(self, config: DocLLMPreTrainDataConfig, skip_files: Iterable[str] = []):
         self._masker = DocLLMPretrainingMasker(config)
-        self._files = sorted(glob(os.path.join(config.directory, "**/*.pt"), recursive=True))
+        self._files = sorted(
+            set(glob(os.path.join(config.directory, "**/*.pt"), recursive=True)).difference(skip_files)
+        )
 
     def __len__(self):
         return len(self._files)
