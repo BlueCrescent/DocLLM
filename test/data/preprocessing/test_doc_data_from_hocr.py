@@ -1,22 +1,23 @@
-from typing import Dict, List, Tuple
+from tempfile import NamedTemporaryFile
+from typing import Dict, Iterable, List, Tuple
 from unittest.mock import MagicMock
 
 import pytest
 from transformers import PreTrainedTokenizer
 
 from docllm.data.preprocessing.data_structure import WritingMode
-from docllm.data.preprocessing.doc_data_from_hocr import _build_word_tokens, _tokenize_word
+from docllm.data.preprocessing.doc_data_from_hocr import build_word_tokens, parse_hocr_document, tokenize_word
 
 
 def test_tokenize_word(tokenizer: PreTrainedTokenizer, begin_of_word: str):
-    assert list(_tokenize_word("Some", tokenizer, begin_of_word)) == [[("Some", 1)]]
-    assert list(_tokenize_word("Company", tokenizer, begin_of_word)) == [[("Comp", 2)], [("any", 3)]]
-    assert list(_tokenize_word("Hello", tokenizer, begin_of_word)) == [[("Hello", 4)]]
-    assert list(_tokenize_word("world!", tokenizer, begin_of_word)) == [[("world", 5)], [("!", 6)]]
+    assert list(tokenize_word("Some", tokenizer, begin_of_word)) == [[("Some", 1)]]
+    assert list(tokenize_word("Company", tokenizer, begin_of_word)) == [[("Comp", 2)], [("any", 3)]]
+    assert list(tokenize_word("Hello", tokenizer, begin_of_word)) == [[("Hello", 4)]]
+    assert list(tokenize_word("world!", tokenizer, begin_of_word)) == [[("world", 5)], [("!", 6)]]
 
 
 def test_tokenize_word_with_escaped_tokens(tokenizer: PreTrainedTokenizer, begin_of_word: str):
-    assert list(_tokenize_word("覐", tokenizer, begin_of_word)) == [[("<0x89>", 7), ("<0x90>", 8)]]
+    assert list(tokenize_word("覐", tokenizer, begin_of_word)) == [[("<0xe8>", 7), ("<0xa6>", 8), ("<0x90>", 9)]]
 
 
 @pytest.mark.parametrize("writing_mode", [WritingMode.horizontal, WritingMode.vertical])
@@ -29,10 +30,77 @@ def test_build_word_tokens(
     str_to_token_ids, token_id_to_token = tokenizer_registries
     word_box = (0, 0, 100, 100)
     for word_text, tids in str_to_token_ids.items():
-        for tid, token in zip(tids, _build_word_tokens(word_text, tokenizer, begin_of_word, word_box, writing_mode)):
+        for tid, token in zip(tids, build_word_tokens(word_text, tokenizer, begin_of_word, word_box, writing_mode)):
             assert token.token_id == tid
             assert token.text == token_id_to_token[tid].strip(begin_of_word)
             assert is_contained_in(token.bbox, word_box)
+
+
+def test_parse_hocr_document_saves_filename(hocr_file: str, tokenizer: PreTrainedTokenizer):
+    parsed = parse_hocr_document(hocr_file, tokenizer)
+    assert parsed.filename == hocr_file
+
+
+def test_parse_hocr_document_parses_all_pages(hocr_file: str, tokenizer: PreTrainedTokenizer):
+    parsed = parse_hocr_document(hocr_file, tokenizer)
+    assert len(parsed.pages) == 2
+
+
+def test_parse_hocr_document_parses_correct_page_dimensions(hocr_file: str, tokenizer: PreTrainedTokenizer):
+    parsed = parse_hocr_document(hocr_file, tokenizer)
+    expected_dimensions = [(2524, 3542), (2524, 3542)]
+    for page, (width, height) in zip(parsed.pages, expected_dimensions):
+        assert page.width == width and page.height == height
+
+
+def test_parse_hocr_document_parses_all_blocks(hocr_file: str, tokenizer: PreTrainedTokenizer):
+    parsed = parse_hocr_document(hocr_file, tokenizer)
+    expected_num_blocks = [2, 2]
+    for page, num_blocks in zip(parsed.pages, expected_num_blocks):
+        assert len(page.blocks) == num_blocks
+
+
+def test_parse_hocr_document_parses_correct_block_bboxes(hocr_file: str, tokenizer: PreTrainedTokenizer):
+    parsed = parse_hocr_document(hocr_file, tokenizer)
+    expected_bboxes = [(209, 222, 1158, 411), (1679, 533, 2493, 610), (209, 222, 1058, 311), (1679, 533, 2493, 610)]
+    for block, bbox in zip((b for p in parsed.pages for b in p.blocks), expected_bboxes):
+        assert block.bbox == bbox
+
+
+def test_parse_hocr_document_parses_all_lines(hocr_file: str, tokenizer: PreTrainedTokenizer):
+    parsed = parse_hocr_document(hocr_file, tokenizer)
+    expected_num_lines = [[2, 1], [1, 1]]
+    for page, page_num_lines in zip(parsed.pages, expected_num_lines):
+        for block, block_num_lines in zip(page.blocks, page_num_lines):
+            assert len(block.lines) == block_num_lines
+
+
+def test_parse_hocr_document_parses_all_line_texts(hocr_file: str, tokenizer: PreTrainedTokenizer):
+    parsed = parse_hocr_document(hocr_file, tokenizer)
+    expected_line_texts = [[["Some Company", "Some Company"], ["Hello world!"]], [["Some Company"], ["Hello world!"]]]
+    for page, page_texts in zip(parsed.pages, expected_line_texts):
+        for block, block_texts in zip(page.blocks, page_texts):
+            for line, text in zip(block.lines, block_texts):
+                assert line.text == text
+
+
+def test_parse_hocr_document_parses_all_words(hocr_file: str, tokenizer: PreTrainedTokenizer):
+    parsed = parse_hocr_document(hocr_file, tokenizer)
+    expected_num_words = [[[2, 2], [2]], [[2], [2]]]
+    for page, page_num_words in zip(parsed.pages, expected_num_words):
+        for block, block_num_words in zip(page.blocks, page_num_words):
+            for line, word_num_words in zip(block.lines, block_num_words):
+                assert len(line.words) == word_num_words
+
+
+def test_parse_hocr_document_parses_all_tokens(hocr_file: str, tokenizer: PreTrainedTokenizer):
+    parsed = parse_hocr_document(hocr_file, tokenizer)
+    expected_num_tokens = [[[[1, 2], [1, 2]], [[1, 2]]], [[[1, 2]], [[1, 2]]]]
+    for page, page_num_tokens in zip(parsed.pages, expected_num_tokens):
+        for block, block_num_tokens in zip(page.blocks, page_num_tokens):
+            for line, line_num_tokens in zip(block.lines, block_num_tokens):
+                for word, word_num_tokens in zip(line.words, line_num_tokens):
+                    assert len(word.tokens) == word_num_tokens
 
 
 def is_contained_in(inner_box: Tuple[float, float, float, float], outer_box: Tuple[float, float, float, float]) -> bool:
@@ -45,17 +113,6 @@ def is_contained_in(inner_box: Tuple[float, float, float, float], outer_box: Tup
             inner_box[3] <= outer_box[3] + eps,
         ]
     )
-
-
-# @pytest.fixture(params=[WritingMode.horizontal, WritingMode.vertical])
-# def build_word_tokens(
-#     tokenizer: PreTrainedTokenizer,
-#     begin_of_word: str,
-#     word_box: Tuple[float, float, float, float],
-#     request: pytest.FixtureRequest,
-# ):
-#     word_text = "Some"
-#     tokens = list(_build_word_tokens(word_text, tokenizer, begin_of_word, word_box, request.param))
 
 
 @pytest.fixture
@@ -77,7 +134,7 @@ def tokenizer_registries(begin_of_word: str) -> Tuple[Dict[str, List[int]], Dict
         "Company": [2, 3],
         "Hello": [4],
         "world!": [5, 6],
-        "覐": [7, 8],
+        "覐": [7, 8, 9],
     }, {
         1: begin_of_word + "Some",
         2: begin_of_word + "Comp",
@@ -85,8 +142,9 @@ def tokenizer_registries(begin_of_word: str) -> Tuple[Dict[str, List[int]], Dict
         4: begin_of_word + "Hello",
         5: begin_of_word + "world",
         6: "!",
-        7: begin_of_word + "<0x89>",
-        8: "<0x90>",
+        7: begin_of_word + "<0xe8>",
+        8: "<0xa6>",
+        9: "<0x90>",
     }
 
 
@@ -98,6 +156,14 @@ def begin_of_word() -> str:
 @pytest.fixture
 def word_box() -> Tuple[float, float, float, float]:
     return (0, 0, 100, 100)
+
+
+@pytest.fixture
+def hocr_file(hocr_data: str) -> Iterable[str]:
+    with NamedTemporaryFile(mode="w", encoding="utf-8", suffix=".hocr") as file:
+        file.write(hocr_data)
+        file.flush()
+        yield file.name
 
 
 @pytest.fixture
@@ -118,7 +184,7 @@ def hocr_data() -> str:
                         <span class="ocrx_word" id="word1" title="bbox 308 228 848 311; x_entity company_name 0; baseline 308 315.16 848 315.16; x_height 250.81; x_style sansSerif bold italic">Some</span>
                         <span class="ocrx_word" id="word2" title="bbox 875 227 1058 310; x_entity company_name 0; baseline 875 309.4 1058 309.4; x_height 250.03; x_style sansSerif bold italic">Company</span>
                     </span>
-                    <span class="ocr_line" id="line2" title="bbox 209 222 1058 311">
+                    <span class="ocr_line" id="line2" title="bbox 308 227 1158 411">
                         <span class="ocrx_word" id="word1" title="bbox 308 228 848 311; x_entity company_name 0; baseline 308 315.16 848 315.16; x_height 250.81; x_style sansSerif bold italic">Some</span>
                         <span class="ocrx_word" id="word2" title="bbox 875 227 1058 310; x_entity company_name 0; baseline 875 309.4 1058 309.4; x_height 250.03; x_style sansSerif bold italic">Company</span>
                     </span>
