@@ -6,6 +6,7 @@ import torch
 from datasets.iterable_dataset import ExamplesIterable, IterableDataset, ShufflingConfig
 from pydantic import BaseModel
 from transformers import Trainer, TrainingArguments
+from transformers.trainer_utils import get_last_checkpoint
 
 from docllm.data.pretraining.config import DocLLMPreTrainDataConfig
 from docllm.data.pretraining.pipeline import build_docllm_datapipeline
@@ -15,7 +16,7 @@ from docllm.modules.llama.config import DocLLMLlamaConfig
 
 
 class LlamaDocLLMTrainerConfig(BaseModel):
-    model_checkpoint: str
+    checkpoint: str
     batch_size: int
     train_data_dir: str
     eval_data_dir_in: str
@@ -31,17 +32,20 @@ class LlamaDocLLMTrainer:
         self,
         config: LlamaDocLLMTrainerConfig,
     ) -> None:
-        self._config = config
+        self._config = config.model_copy()
+        if self._config.resume_from_checkpoint:
+            self._config.checkpoint = get_last_checkpoint(self._config.output_dir)
         self._model_config = DocLLMLlamaConfig.from_pretrained(
-            self._config.model_checkpoint, additional_training_vocab_size=3
+            self._config.checkpoint, additional_training_vocab_size=3
         )
-        self._model = CausalLlamaDocLLM.from_pretrained(self._config.model_checkpoint, config=self._model_config)
+        self._model = CausalLlamaDocLLM.from_pretrained(self._config.checkpoint, config=self._model_config)
         self._build_data_pipelines()
         training_args = self._build_training_args()
         self._build_trainer(training_args)
 
     def train(self):
-        self._trainer.train()
+        ckpt = self._config.checkpoint if self._config.resume_from_checkpoint else None
+        self._trainer.train(resume_from_checkpoint=ckpt)
 
     def _build_data_pipelines(self):
         data_config = DocLLMPreTrainDataConfig(
@@ -119,6 +123,7 @@ class LlamaDocLLMTrainer:
             data_seed=42,
             include_tokens_per_second=True,
             include_num_input_tokens_seen=True,
+            report_to=["tensorboard"],
         )
 
     def _build_trainer(self, training_args: TrainingArguments):
