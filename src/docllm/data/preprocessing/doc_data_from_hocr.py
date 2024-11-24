@@ -4,16 +4,25 @@ from collections import Counter
 from itertools import groupby
 from typing import Iterable, List, Tuple
 
-from transformers import PreTrainedTokenizer
+from pydantic import BaseModel, ConfigDict
+from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
 from docllm.data.preprocessing.data_structure import Block, Document, Line, Page, Token, Word, WritingMode
 
 
-def parse_hocr_document(hocr_path: str, tokenizer: PreTrainedTokenizer) -> Document:
+class Setup(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    tokenizer: PreTrainedTokenizer | PreTrainedTokenizerFast
+    build_token_bboxes: bool = False
+    begin_of_word: str = "▁"
+
+
+def parse_hocr_document(hocr_path: str, setup: Setup) -> Document:
     root = parse_without_namespaces(hocr_path)
     body = root.findall(".//body")
     pages = body[0].findall(".//div[@class='ocr_page']")
-    return Document(filename=hocr_path, pages=[parse_hocr_page(page, tokenizer) for page in pages])
+    return Document(filename=hocr_path, pages=[pp for page in pages if (pp := parse_hocr_page(page, setup)).blocks])
 
 
 def parse_without_namespaces(hocr_path: str) -> ET.Element:
@@ -23,28 +32,32 @@ def parse_without_namespaces(hocr_path: str) -> ET.Element:
     return it.root
 
 
-def parse_hocr_page(page: ET.Element, tokenizer: PreTrainedTokenizer) -> Page:
+def parse_hocr_page(page: ET.Element, setup: Setup) -> Page:
     blocks = page.findall(".//content_area")
     _, _, width, height = page.attrib["title"].split("bbox")[1].split(";")[0].strip().split()
     return Page(
-        blocks=[parse_hocr_block(block, tokenizer) for block in blocks], width=float(width), height=float(height)
+        blocks=[pb for block in blocks if (pb := parse_hocr_block(block, setup)).lines],
+        width=float(width),
+        height=float(height),
     )
 
 
-def parse_hocr_block(block: ET.Element, tokenizer: PreTrainedTokenizer) -> Block:
+def parse_hocr_block(block: ET.Element, setup: Setup) -> Block:
     paragraphs = block.findall(".//paragraph")
     lines = [l for p in paragraphs for l in p.findall(".//span[@class='ocr_line']")]
-    lines = [parse_hocr_line(line, tokenizer) for line in lines]
-    return Block(lines=lines, bbox=join_rects(*(line.bbox for line in lines)))
+    parsed_lines = [pl for line in lines if (pl := parse_hocr_line(line, setup)).words]
+    if not parsed_lines:
+        return Block(lines=[], bbox=(0.0, 0.0, 0.0, 0.0))
+    return Block(lines=parsed_lines, bbox=join_rects(*(l.bbox for l in parsed_lines)))
 
 
-def parse_hocr_line(line: ET.Element, tokenizer: PreTrainedTokenizer) -> Line:
-    words = line.findall(".//span[@class='ocrx_word']")
+def parse_hocr_line(line: ET.Element, setup: Setup) -> Line:
+    words = [w for w in line.findall(".//span[@class='ocrx_word']") if w.text is not None]
     bbox = parse_bbox(line)
     writing_mode = determine_writing_mode(words)
     return Line(
         text=" ".join(w.text for w in words),
-        words=[parse_hocr_word(word, tokenizer, writing_mode) for word in words],
+        words=[parse_hocr_word(word, writing_mode, setup) for word in words],
         direction=(float(bbox[2]) - float(bbox[0]), float(bbox[3]) - float(bbox[1])),
         writing_mode=writing_mode,
         bbox=bbox,
@@ -52,6 +65,8 @@ def parse_hocr_line(line: ET.Element, tokenizer: PreTrainedTokenizer) -> Line:
 
 
 def determine_writing_mode(words: List[ET.Element]) -> WritingMode:
+    if len(words) == 0:
+        return WritingMode.horizontal
     word_writing_modes = Counter(parse_writing_mode_from_baseline(word) for word in words)
     writing_mode = word_writing_modes.most_common(1)[0][0]
     return writing_mode
@@ -65,9 +80,12 @@ def parse_writing_mode_from_baseline(word: ET.Element) -> WritingMode:
     return WritingMode.vertical
 
 
-def parse_hocr_word(word: ET.Element, tokenizer: PreTrainedTokenizer, writing_mode: WritingMode) -> Word:
+def parse_hocr_word(word: ET.Element, writing_mode: WritingMode, setup: Setup) -> Word:
     bbox = parse_bbox(word)
-    tokens = list(build_word_tokens(word.text, tokenizer, "▁", bbox, writing_mode))
+    if setup.build_token_bboxes:
+        tokens = list(build_word_tokens(word.text, setup.tokenizer, setup.begin_of_word, bbox, writing_mode))
+    else:
+        tokens = list(build_word_tokens_with_same_bounding_box(word.text, setup.tokenizer, bbox))
     return Word(text=word.text, tokens=tokens, bbox=bbox)
 
 
@@ -79,6 +97,15 @@ def parse_bbox(element: ET.Element) -> Tuple[float, float, float, float]:
 def join_rects(*rects: Tuple[float, float, float, float]) -> Tuple[float, float, float, float]:
     lefts, tops, rights, bottoms = zip(*rects)
     return min(lefts), min(tops), max(rights), max(bottoms)
+
+
+def build_word_tokens_with_same_bounding_box(
+    text: str, tokenizer: PreTrainedTokenizer, word_bbox: Tuple[float, float, float, float]
+) -> Iterable[Token]:
+    token_ids = tokenizer(text, return_attention_mask=False)["input_ids"]
+    tokens = tokenizer.convert_ids_to_tokens(token_ids, skip_special_tokens=True)
+    for t, t_id in zip(tokens, token_ids):
+        yield Token(text=t, token_id=t_id, bbox=word_bbox)
 
 
 def build_word_tokens(
