@@ -5,7 +5,7 @@ from transformers import LlamaConfig
 
 class PositionalEmbeddingMode(StrEnum):
     NONE = "none"
-    TEST_ONLY = "test_only"
+    TEXT_ONLY = "text_only"
     TEXT_AND_SPATIAL = "text_and_spatial"
 
 
@@ -21,19 +21,19 @@ class DocLLMLlamaConfig(LlamaConfig):
         num_attention_heads=32,
         num_key_value_heads=None,
         hidden_act="silu",
-        max_position_embeddings=4096,
+        max_position_embeddings=2048,
         initializer_range=0.02,
-        rms_norm_eps=0.000001,
+        rms_norm_eps=1e-6,
         use_cache=False,
         pad_token_id=None,
         bos_token_id=1,
         eos_token_id=2,
         pretraining_tp=1,
         tie_word_embeddings=False,
-        rope_theta=10000,
+        rope_theta=10000.0,
         rope_scaling=None,
         attention_bias=False,
-        attention_dropout=0,
+        attention_dropout=0.0,
         lambda_ts: float = 1.0,
         lambda_st: float = 1.0,
         lambda_ss: float = 1.0,

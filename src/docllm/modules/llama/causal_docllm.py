@@ -41,7 +41,7 @@ class CausalDocLLMOutputWithPast(ModelOutput):
     """
 
     loss: Optional[torch.FloatTensor] = None
-    logits: torch.FloatTensor = None
+    logits: Optional[torch.FloatTensor] = None
     past_key_values: Optional[Cache] = None
     spatial_past_key_value: Optional[Cache] = None
     hidden_states: Optional[Tuple[torch.FloatTensor]] = None
@@ -117,7 +117,6 @@ class CausalLlamaDocLLM(DocLLMLlamaPreTrainedModel):
 
         hidden_states = outputs[0]
         logits = self.lm_head(hidden_states)
-        logits = logits.float()
 
         loss = None
         if labels is not None:

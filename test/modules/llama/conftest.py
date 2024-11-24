@@ -1,4 +1,5 @@
 from test.modules.llama.helpers import InputSizes, ModelInputs
+from typing import Tuple
 
 import pytest
 import torch
@@ -45,6 +46,11 @@ def attention_mask(input_sizes: InputSizes) -> torch.Tensor:
 @pytest.fixture
 def position_ids(input_sizes: InputSizes) -> torch.LongTensor:
     return torch.arange(input_sizes.sequence_length).unsqueeze(0).expand(input_sizes.batch_size, -1)
+
+
+@pytest.fixture
+def position_embeddings(model_inputs: ModelInputs, config: DocLLMLlamaConfig) -> Tuple[torch.Tensor, torch.Tensor]:
+    return model_inputs.compute_positional_embeddings(config)
 
 
 @pytest.fixture

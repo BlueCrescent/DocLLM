@@ -42,12 +42,12 @@ class DocLLMLlamaDecoderLayer(nn.Module):
         self,
         hidden_states: torch.Tensor,
         bounding_box_embeddings: Tensor,
-        position_ids: torch.LongTensor,
         attention_mask: Optional[torch.Tensor] = None,
         past_key_value: Optional[Cache] = None,
         spatial_past_key_value: Optional[Cache] = None,
         output_attentions: Optional[bool] = False,
         cache_position: Optional[torch.LongTensor] = None,
+        position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         **kwargs,
     ) -> Tuple[torch.FloatTensor, Optional[torch.FloatTensor], Optional[Cache], Optional[Cache]]:
         """
@@ -82,12 +82,12 @@ class DocLLMLlamaDecoderLayer(nn.Module):
         ) = self.self_attn(
             hidden_states=hidden_states,
             bounding_box_embeddings=bounding_box_embeddings,
-            position_ids=position_ids,
             attention_mask=attention_mask,
             past_key_value=past_key_value,
             spatial_past_key_value=spatial_past_key_value,
             output_attentions=output_attentions,
             cache_position=cache_position,
+            position_embeddings=position_embeddings,
             **kwargs,
         )
         hidden_states = residual + hidden_states
