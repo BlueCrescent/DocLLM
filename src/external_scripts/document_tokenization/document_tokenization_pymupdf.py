@@ -9,6 +9,7 @@ import fitz
 from transformers import AutoTokenizer, PreTrainedTokenizer
 
 from docllm.data.preprocessing.data_structure import Block, Document, Line, Page, Rect, Token, Word, WritingMode
+from docllm.data.preprocessing.doc_data_from_hocr import Setup, build_word_tokens_with_same_bounding_box
 
 
 def main(args: List[str]):
@@ -21,67 +22,48 @@ def main(args: List[str]):
     output_dir = args[2]
     tokenizer_name_or_path = "LeoLM/leo-hessianai-7b" if len(args) < 4 else args[3]
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name_or_path, legacy=True, add_bos_token=False)
+    setup = Setup(tokenizer=tokenizer)
 
-    doc = parse_doc_from_pdf_path(pdf_path, tokenizer)
+    doc = parse_doc_from_pdf_path(pdf_path, setup)
 
     with open(os.path.join(output_dir, pdf_file_base + ".json"), "w") as f:
         f.write(doc.model_dump_json())
 
 
-def parse_doc_from_pdf_path(pdf_path: str, tokenizer: PreTrainedTokenizer, begin_of_word: str = "▁") -> Document:
+def parse_doc_from_pdf_path(pdf_path: str, setup: Setup) -> Document:
     doc = fitz.open(pdf_path)
-    pages = map(
-        partial(parse_page_from_page_dict, tokenizer=tokenizer, begin_of_word=begin_of_word),
-        (p.get_text("rawdict") for p in doc),
-    )
+    pages = map(partial(parse_page_from_page_dict, setup=setup), (p.get_text("rawdict") for p in doc))
     return Document(pages=list(pages), filename=pdf_path)
 
 
 def parse_page_from_page_dict(
-    page_dict: Dict[str, Union[str, List[Dict[str, Union[str, List[Dict[str, Union[int, Rect]]]]]]]],
-    tokenizer: PreTrainedTokenizer,
-    begin_of_word: str = "▁",
+    page_dict: Dict[str, Union[str, List[Dict[str, Union[str, List[Dict[str, Union[int, Rect]]]]]]]], setup: Setup
 ) -> Page:
     blocks = [
         block
-        for block in map(
-            partial(parse_block_from_block_dict, tokenizer=tokenizer, begin_of_word=begin_of_word),
-            page_dict["blocks"],
-        )
+        for block in map(partial(parse_block_from_block_dict, setup=setup), page_dict["blocks"])
         if block is not None
     ]
     return Page(blocks=blocks, width=page_dict["width"], height=page_dict["height"])
 
 
 def parse_block_from_block_dict(
-    block_dict: Dict[str, Union[str, List[Dict[str, Union[str, List[Dict[str, Union[int, Rect]]]]]]]],
-    tokenizer: PreTrainedTokenizer,
-    begin_of_word: str = "▁",
+    block_dict: Dict[str, Union[str, List[Dict[str, Union[str, List[Dict[str, Union[int, Rect]]]]]]]], setup: Setup
 ) -> Optional[Block]:
     if block_dict["type"] != 0:
         return None
-    lines = map(
-        partial(parse_line_from_line_dict, tokenizer=tokenizer, begin_of_word=begin_of_word),
-        block_dict["lines"],
-    )
+    lines = map(partial(parse_line_from_line_dict, setup=setup), block_dict["lines"])
     return Block(lines=list(lines), bbox=block_dict["bbox"])
 
 
 def parse_line_from_line_dict(
-    line_dict: Dict[str, Union[str, List[Dict[str, Union[int, Rect]]]]],
-    tokenizer: PreTrainedTokenizer,
-    begin_of_word: str = "▁",
+    line_dict: Dict[str, Union[str, List[Dict[str, Union[int, Rect]]]]], setup: Setup
 ) -> Line:
     chars = [c for span in line_dict["spans"] for c in span["chars"]]
     text = "".join(c["c"] for c in chars)
     writing_mode = WritingMode(line_dict["wmode"])
     split_chars = (list(group) for k, group in groupby(chars, key=lambda c: re.match(r"\s", c["c"])) if not k)
-    words = map(
-        partial(
-            parse_word_from_char_dicts, writing_mode=writing_mode, tokenizer=tokenizer, begin_of_word=begin_of_word
-        ),
-        split_chars,
-    )
+    words = map(partial(parse_word_from_char_dicts, writing_mode=writing_mode, setup=setup), split_chars)
     return Line(
         text=text,
         words=list(words),
@@ -92,35 +74,30 @@ def parse_line_from_line_dict(
 
 
 def parse_word_from_char_dicts(
-    char_dicts: List[Dict[str, Union[int, Rect]]],
-    writing_mode: WritingMode,
-    tokenizer: PreTrainedTokenizer,
-    begin_of_word: str = "▁",
+    char_dicts: List[Dict[str, Union[int, Rect]]], writing_mode: WritingMode, setup: Setup
 ) -> Word:
     text = "".join(char_dict["c"] for char_dict in char_dicts)
-    tokens = list(_build_tokens(text, char_dicts, writing_mode, tokenizer, begin_of_word))
-    bbox = _join_rects(*(t.bbox for t in tokens))
+    if setup.build_token_bboxes:
+        tokens = list(_build_tokens(text, char_dicts, writing_mode, setup))
+        bbox = _join_rects(*(t.bbox for t in tokens))
+    else:
+        bbox = _join_rects(*(c["bbox"] for c in char_dicts))
+        tokens = list(build_word_tokens_with_same_bounding_box(text, setup.tokenizer, bbox))
     return Word(text=text, tokens=tokens, bbox=bbox)
 
 
 def _build_tokens(
-    text: str,
-    char_dicts: List[Dict[str, Union[int, Rect]]],
-    writing_mode: WritingMode,
-    tokenizer: PreTrainedTokenizer,
-    begin_of_word: str,
+    text: str, char_dicts: List[Dict[str, Union[int, Rect]]], writing_mode: WritingMode, setup: Setup
 ) -> Iterable[Token]:
-    token_ids = tokenizer(text, return_attention_mask=False)["input_ids"]
-    token_groups = _build_token_strings_with_groups_of_escaped_tokens(token_ids, tokenizer, begin_of_word)
+    token_ids = setup.tokenizer(text, return_attention_mask=False)["input_ids"]
+    token_groups = _build_token_strings_with_groups_of_escaped_tokens(token_ids, setup)
     for i, (t, b) in zip(token_ids, _build_token_boxes(token_groups, text, char_dicts, writing_mode)):
         yield Token(text=t, token_id=i, bbox=b)
 
 
-def _build_token_strings_with_groups_of_escaped_tokens(
-    token_ids: List[int], tokenizer: PreTrainedTokenizer, begin_of_word: str
-):
-    tokens = tokenizer.convert_ids_to_tokens(token_ids, skip_special_tokens=True)
-    tokens = _remove_begin_of_word_markers(tokens, begin_of_word)
+def _build_token_strings_with_groups_of_escaped_tokens(token_ids: List[int], setup: Setup):
+    tokens = setup.tokenizer.convert_ids_to_tokens(token_ids, skip_special_tokens=True)
+    tokens = _remove_begin_of_word_markers(tokens, setup.begin_of_word)
     token_groups = _group_consecutive_escaped_tokens(tokens)
     return token_groups
 
