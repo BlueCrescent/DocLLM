@@ -44,7 +44,7 @@ class PrecomputedDataLoaderPipe(IterDataPipe):
 
     def __iter__(self) -> Iterable[Tuple[torch.LongTensor, torch.FloatTensor, torch.BoolTensor, torch.LongTensor]]:
         for file_name in self._source_datapipe:
-            file_data = torch.load(file_name, map_location="cpu")
+            file_data = torch.load(file_name, map_location="cpu", weights_only=True)
             if len(file_data) > 0 and len(file_data[0]) > 0:
                 text_tokens, bbox_tokens, loss_mask, labels = file_data
                 yield text_tokens, bbox_tokens, loss_mask, labels
