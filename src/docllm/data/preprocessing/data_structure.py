@@ -1,3 +1,4 @@
+import os
 from enum import Enum
 from typing import List, Tuple
 
@@ -55,3 +56,12 @@ class Document(BaseModel):
 
     def get_text(self, page: int, block_separator: str = "\n") -> str:
         return self.pages[page].get_text(block_separator=block_separator)
+
+    def save_as_json(self, directory: str):
+        basename = os.path.splitext(os.path.basename(self.filename))[0]
+        filename = os.path.join(directory, basename + ".json")
+        if os.path.exists(filename):
+            raise IOError(f"Output file '{filename}' already exists. Cannot save document as JSON.")
+        as_json = self.model_dump_json()
+        with open(filename, "w") as f:
+            f.write(as_json)
