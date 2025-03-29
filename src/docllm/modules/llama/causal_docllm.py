@@ -4,6 +4,7 @@ from typing import Callable, Optional, Tuple, Union
 
 import torch
 from transformers.cache_utils import Cache
+from transformers.generation import GenerationMixin
 from transformers.modeling_outputs import ModelOutput
 
 from docllm.modules.llama.config import DocLLMLlamaConfig
@@ -48,7 +49,9 @@ class CausalDocLLMOutputWithPast(ModelOutput):
     attentions: Optional[Tuple[torch.FloatTensor]] = None
 
 
-class CausalLlamaDocLLM(DocLLMLlamaPreTrainedModel):
+class CausalLlamaDocLLM(DocLLMLlamaPreTrainedModel, GenerationMixin):
+    _supports_sdpa = True
+
     def __init__(self, config: DocLLMLlamaConfig):
         config = deepcopy(config)
         super().__init__(config)

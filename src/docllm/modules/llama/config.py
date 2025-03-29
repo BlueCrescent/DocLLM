@@ -2,6 +2,8 @@ from enum import StrEnum
 
 from transformers import LlamaConfig
 
+from docllm.modules.spatial_embedder import SpatialEmbeddingType
+
 
 class PositionalEmbeddingMode(StrEnum):
     NONE = "none"
@@ -38,6 +40,10 @@ class DocLLMLlamaConfig(LlamaConfig):
         lambda_st: float = 1.0,
         lambda_ss: float = 1.0,
         positional_embedding_mode: PositionalEmbeddingMode = PositionalEmbeddingMode.TEXT_AND_SPATIAL,
+        embedding_type: SpatialEmbeddingType = SpatialEmbeddingType.PROJECTION,
+        embed_include_width_height: bool = False,
+        embed_max_coord: int = 1000,
+        _attn_implementation: str = "eager",
         **kwargs,
     ):
         super().__init__(
@@ -61,6 +67,7 @@ class DocLLMLlamaConfig(LlamaConfig):
             rope_scaling,
             attention_bias,
             attention_dropout,
+            _attn_implementation=_attn_implementation,
             **kwargs,
         )
         self.additional_training_vocab_size = additional_training_vocab_size
@@ -68,6 +75,9 @@ class DocLLMLlamaConfig(LlamaConfig):
         self.lambda_st = lambda_st
         self.lambda_ss = lambda_ss
         self.positional_embedding_mode = positional_embedding_mode
+        self.embedding_type = embedding_type
+        self.embed_include_width_height = embed_include_width_height
+        self.embed_max_coord = embed_max_coord
 
         if self.pretraining_tp > 1:
             raise NotImplementedError()

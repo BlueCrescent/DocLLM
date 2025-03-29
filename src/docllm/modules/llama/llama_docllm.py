@@ -13,6 +13,7 @@ from docllm.modules.llama.config import DocLLMLlamaConfig
 from docllm.modules.llama.decoder_layer import DocLLMLlamaDecoderLayer
 from docllm.modules.llama.pretrained_model import DocLLMLlamaPreTrainedModel
 from docllm.modules.part_freezable_embedding import PartFreezableEmbedding
+from docllm.modules.spatial_embedder import SpatialEmbedder
 
 logger = logging.get_logger(__name__)
 
@@ -71,7 +72,12 @@ class LlamaDocLLM(DocLLMLlamaPreTrainedModel):
             padding_idx=self.padding_idx,
             num_additional_tokens=config.additional_training_vocab_size,
         )
-        self.embed_spatial = nn.Linear(4, config.hidden_size, bias=False)
+        self.embed_spatial = SpatialEmbedder(
+            hidden_size=config.hidden_size,
+            embedding_type=config.embedding_type,
+            include_width_height=config.embed_include_width_height,
+            max_coord=config.embed_max_coord,
+        )
         self.layers = nn.ModuleList(
             [DocLLMLlamaDecoderLayer(config, layer_idx) for layer_idx in range(config.num_hidden_layers)]
         )
@@ -266,7 +272,13 @@ class LlamaDocLLM(DocLLMLlamaPreTrainedModel):
         using_static_cache = isinstance(past_key_values, StaticCache)
 
         # When output attentions is True, sdpa implementation's forward method calls the eager implementation's forward
-        if self.config._attn_implementation == "sdpa" and not using_static_cache and not output_attentions:
+        is_attention_mask_3d = attention_mask is not None and len(attention_mask.shape) == 3
+        if (
+            self.config._attn_implementation == "sdpa"
+            and not using_static_cache
+            and not output_attentions
+            and not is_attention_mask_3d
+        ):
             if AttentionMaskConverter._ignore_causal_mask_sdpa(
                 attention_mask,
                 inputs_embeds=input_tensor,
@@ -276,6 +288,18 @@ class LlamaDocLLM(DocLLMLlamaPreTrainedModel):
                 return None
 
         dtype, device = input_tensor.dtype, input_tensor.device
+
+        # If the attention mask is 3D, i.e. has a shape of (batch_size, sequence_length, sequence_length),
+        # we directly expand it to 4D, i.e. (batch_size, 1, sequence_length, sequence_length).
+        # if is_attention_mask_3d:
+        #     attention_mask = torch.unsqueeze(attention_mask, 1)
+        #     min_dtype = torch.finfo(dtype).min
+        #     padding_mask = attention_mask == 0
+        #     mask_length = attention_mask.shape[-1]
+        #     float_mask = torch.zeros_like(attention_mask, dtype=dtype, device=device)
+        #     float_mask[:, :, :, :mask_length] = float_mask[:, :, :, :mask_length].masked_fill(padding_mask, min_dtype)
+        #     attention_mask = float_mask
+
         sequence_length = input_tensor.shape[1]
         if using_static_cache:
             target_length = past_key_values.get_max_cache_shape()
@@ -357,10 +381,20 @@ class LlamaDocLLM(DocLLMLlamaPreTrainedModel):
             if attention_mask is not None:
                 causal_mask = causal_mask.clone()  # copy to contiguous memory for in-place edit
                 mask_length = attention_mask.shape[-1]
-                padding_mask = causal_mask[:, :, :, :mask_length] + attention_mask[:, None, None, :]
-                padding_mask = padding_mask == 0
-                causal_mask[:, :, :, :mask_length] = causal_mask[:, :, :, :mask_length].masked_fill(
-                    padding_mask, min_dtype
-                )
+                if len(attention_mask.shape) == 3:
+                    # If the attention mask is 3D, i.e. has a shape of (batch_size, sequence_length, sequence_length),
+                    # we directly expand it to 4D, i.e. (batch_size, 1, sequence_length, sequence_length).
+                    mask_length2 = attention_mask.shape[-2]
+                    padding_mask = causal_mask[:, :, :mask_length2, :mask_length] + attention_mask[:, None, :, :]
+                    padding_mask = padding_mask == 0
+                    causal_mask[:, :, :, :mask_length] = causal_mask[:, :, :mask_length2, :mask_length].masked_fill(
+                        padding_mask, min_dtype
+                    )
+                else:
+                    padding_mask = causal_mask[:, :, :, :mask_length] + attention_mask[:, None, None, :]
+                    padding_mask = padding_mask == 0
+                    causal_mask[:, :, :, :mask_length] = causal_mask[:, :, :, :mask_length].masked_fill(
+                        padding_mask, min_dtype
+                    )
 
         return causal_mask

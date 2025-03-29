@@ -10,11 +10,13 @@ from transformers.models.llama.modeling_llama import LlamaMLP, LlamaRMSNorm
 from docllm.modules.llama.attention import DocLLMAttention
 from docllm.modules.llama.config import DocLLMLlamaConfig
 
-LLAMA_ATTENTION_CLASSES = {
-    "eager": DocLLMAttention,
-    # "flash_attention_2": DocLLMFlashAttention2,
-    # "sdpa": DocLLMSdpaAttention,
-}
+# from docllm.modules.llama.flash_attention import DocLLMFlashAttention
+
+# LLAMA_ATTENTION_CLASSES = {
+#     "eager": DocLLMAttention,
+#     # "flash_attention_2": DocLLMFlashAttention,
+#     # "sdpa": DocLLMSdpaAttention,
+# }
 
 
 class DocLLMLlamaDecoderLayer(nn.Module):
@@ -22,7 +24,7 @@ class DocLLMLlamaDecoderLayer(nn.Module):
         super().__init__()
         self.hidden_size = config.hidden_size
 
-        self.self_attn = LLAMA_ATTENTION_CLASSES[config._attn_implementation](config=config, layer_idx=layer_idx)
+        self.self_attn = DocLLMAttention(config=config, layer_idx=layer_idx)
 
         self.mlp = LlamaMLP(config)
         self.input_layernorm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
