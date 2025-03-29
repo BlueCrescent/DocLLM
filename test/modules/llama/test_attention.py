@@ -93,8 +93,8 @@ def test_computed_q_k_v_have_expected_shape(
     head_dim = config.hidden_size // config.num_attention_heads
     attention = DocLLMAttention(config, layer_idx=0)
     q_proj = k_proj = v_proj = nn.Linear(config.hidden_size, config.num_attention_heads * head_dim)
-    q, k, v, _ = attention._compute_q_k_v(
-        model_inputs.input_embeddings, past_key_value, q_proj, k_proj, v_proj, position_embeddings
+    q, k, v = attention._compute_q_k_v_for_projections(
+        model_inputs.input_embeddings, q_proj, k_proj, v_proj, past_key_value, position_embeddings
     )
     expected_shape = (input_sizes.batch_size, config.num_attention_heads, input_sizes.sequence_length, head_dim)
     assert q.shape == expected_shape

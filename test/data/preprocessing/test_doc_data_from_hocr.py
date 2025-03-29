@@ -10,14 +10,14 @@ from docllm.data.preprocessing.doc_data_from_hocr import Setup, build_word_token
 
 
 def test_tokenize_word(tokenizer: PreTrainedTokenizer, begin_of_word: str):
-    assert list(tokenize_word("Some", tokenizer, begin_of_word)) == [[("Some", 1)]]
-    assert list(tokenize_word("Company", tokenizer, begin_of_word)) == [[("Comp", 2)], [("any", 3)]]
-    assert list(tokenize_word("Hello", tokenizer, begin_of_word)) == [[("Hello", 4)]]
-    assert list(tokenize_word("world!", tokenizer, begin_of_word)) == [[("world", 5)], [("!", 6)]]
+    assert list(tokenize_word(" Some", tokenizer, begin_of_word)) == [[("Some", 1)]]
+    assert list(tokenize_word(" Company", tokenizer, begin_of_word)) == [[("Comp", 2)], [("any", 3)]]
+    assert list(tokenize_word(" Hello", tokenizer, begin_of_word)) == [[("Hello", 4)]]
+    assert list(tokenize_word(" world!", tokenizer, begin_of_word)) == [[("world", 5)], [("!", 6)]]
 
 
 def test_tokenize_word_with_escaped_tokens(tokenizer: PreTrainedTokenizer, begin_of_word: str):
-    assert list(tokenize_word("覐", tokenizer, begin_of_word)) == [[("<0xe8>", 7), ("<0xa6>", 8), ("<0x90>", 9)]]
+    assert list(tokenize_word(" 覐", tokenizer, begin_of_word)) == [[("<0xe8>", 7), ("<0xa6>", 8), ("<0x90>", 9)]]
 
 
 @pytest.mark.parametrize("writing_mode", [WritingMode.horizontal, WritingMode.vertical])
@@ -30,7 +30,9 @@ def test_build_word_tokens(
     str_to_token_ids, token_id_to_token = tokenizer_registries
     word_box = (0, 0, 100, 100)
     for word_text, tids in str_to_token_ids.items():
-        for tid, token in zip(tids, build_word_tokens(word_text, tokenizer, begin_of_word, word_box, writing_mode)):
+        for tid, token in zip(
+            tids, build_word_tokens(" " + word_text, tokenizer, begin_of_word, word_box, writing_mode)
+        ):
             assert token.token_id == tid
             assert token.text == token_id_to_token[tid].strip(begin_of_word)
             assert is_contained_in(token.bbox, word_box)
@@ -142,7 +144,8 @@ def build_token_bboxes(request) -> bool:
 def tokenizer(tokenizer_registries: Tuple[Dict[str, List[int]], Dict[int, str]]) -> PreTrainedTokenizer:
     str_to_token_ids, token_id_to_token = tokenizer_registries
     tokenizer = MagicMock(spec=PreTrainedTokenizer)
-    tokenizer.side_effect = lambda text, return_attention_mask: {"input_ids": str_to_token_ids[text]}
+    # Strip leading space added by tokenization logic.
+    tokenizer.side_effect = lambda text, return_attention_mask: {"input_ids": str_to_token_ids[text[1:]]}
     tokenizer.convert_ids_to_tokens = MagicMock()
     tokenizer.convert_ids_to_tokens.side_effect = lambda token_ids, skip_special_tokens: [
         token_id_to_token[token_id] for token_id in token_ids
