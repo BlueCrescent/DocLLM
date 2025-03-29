@@ -11,6 +11,7 @@ class DocLLMPretrainingMasker:
     def __init__(self, config: DocLLMPreTrainDataConfig) -> None:
         self._config = config.model_copy()
         self._get_num_masks = self._config.num_masked_blocks_callable
+        self._min_num_blocks_available = self._config.min_num_blocks_available
         self._mask_text_token = torch.tensor([self._config.mask_text_token])
         self._mask_bbox_token = torch.tensor([self._config.mask_bbox_token])
         self._block_start_text_token = torch.tensor([self._config.block_start_text_token])
@@ -22,6 +23,11 @@ class DocLLMPretrainingMasker:
         self, input_tensors: List[torch.LongTensor], bbox_tensors: List[torch.FloatTensor]
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.BoolTensor, torch.LongTensor]:
         num_blocks = len(input_tensors)
+        if num_blocks < self._min_num_blocks_available:
+            raise ValueError(
+                f"Number of blocks ({num_blocks}) is less than the minimum "
+                f"number of blocks available ({self._min_num_blocks_available})."
+            )
         num_masks = self._get_valid_nun_masks(num_blocks)
         mask_indices = self._get_mask_indices(num_blocks, num_masks)
         return self._create_masked_input(input_tensors, bbox_tensors, mask_indices)
@@ -34,7 +40,7 @@ class DocLLMPretrainingMasker:
                 f"blocks (ceil({num_blocks} * {self._config.max_percentage_masked_blocks}))."
             )
             num_masks = max_num_masks
-        if num_masks == 0:
+        if num_masks <= 0:
             raise ValueError("Number of masks cannot be zero.")
         return num_masks
 

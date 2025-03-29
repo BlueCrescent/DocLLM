@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
-from typing import Annotated, Any, Dict, Optional, Protocol, Tuple, runtime_checkable
+from typing import Annotated, Optional, Protocol, Tuple, runtime_checkable
 
 import torch
-from pydantic import BaseModel, Field, ValidationInfo, field_validator
+from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt, ValidationInfo, field_validator
 
-PositiveInt = Annotated[int, Field(strict=True, gt=0)]
 ZeroOneFloat = Annotated[float, Field(strict=True, ge=0, le=1)]
 CoordToken = ZeroOneFloat
 TokenRect = Tuple[CoordToken, CoordToken, CoordToken, CoordToken]
@@ -31,6 +30,10 @@ class DocLLMPreTrainDataConfig(BaseModel):
     # Num blocks times the value will be ceiled to get the
     # maximum number of blocks that can be masked.
     max_percentage_masked_blocks: ZeroOneFloat = 0.15
+    # Minimum of number of blocks that should be available
+    # in the document. This is used to prevent masking
+    # too many blocks in a document that is too small.
+    min_num_blocks_available: NonNegativeInt = 6
 
     mask_text_token: int = 0
     mask_bbox_token: TokenRect = (0.0, 0.0, 0.0, 0.0)
