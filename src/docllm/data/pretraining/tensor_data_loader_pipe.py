@@ -18,7 +18,7 @@ class TensorDataLoaderPipe(IterDataPipe):
                 logging.warning(f"Error while parsing file {file_name}: {e}")
 
     def _try_parse_file(self, file_name: str) -> Tuple[List[torch.Tensor], List[torch.Tensor]]:
-        file_data = torch.load(file_name, map_location="cpu")
+        file_data = torch.load(file_name, map_location="cpu", weights_only=True)
         if len(file_data) == 0:
             raise ValueError(f"File is empty.")
         text_tokens, bbox_tokens = tuple(map(list, zip(*file_data)))
