@@ -28,4 +28,4 @@ class DocLLMCrossEntropyLoss(nn.CrossEntropyLoss):
         losses = super().forward(logits.view(-1, logits.size(-1)), labels.view(-1))
         if loss_mask is not None:
             losses = losses * loss_mask.view(-1).float()
-        return losses.sum()
+        return losses.sum() / loss_mask.sum().float()
