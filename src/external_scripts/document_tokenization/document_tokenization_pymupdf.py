@@ -9,7 +9,11 @@ import fitz
 from transformers import AutoTokenizer, PreTrainedTokenizer
 
 from docllm.data.preprocessing.data_structure import Block, Document, Line, Page, Rect, Token, Word, WritingMode
-from docllm.data.preprocessing.doc_data_from_hocr import Setup, build_word_tokens_with_same_bounding_box
+from docllm.data.preprocessing.doc_data_from_hocr import (
+    Setup,
+    build_word_tokens_with_same_bounding_box,
+    tokenize_with_leading_space,
+)
 
 
 def main(args: List[str]):
@@ -89,7 +93,7 @@ def parse_word_from_char_dicts(
 def _build_tokens(
     text: str, char_dicts: List[Dict[str, Union[int, Rect]]], writing_mode: WritingMode, setup: Setup
 ) -> Iterable[Token]:
-    token_ids = setup.tokenizer(text, return_attention_mask=False)["input_ids"]
+    token_ids = tokenize_with_leading_space(text, setup.tokenizer)
     token_groups = _build_token_strings_with_groups_of_escaped_tokens(token_ids, setup)
     for i, (t, b) in zip(token_ids, _build_token_boxes(token_groups, text, char_dicts, writing_mode)):
         yield Token(text=t, token_id=i, bbox=b)
