@@ -102,10 +102,18 @@ def join_rects(*rects: Tuple[float, float, float, float]) -> Tuple[float, float,
 def build_word_tokens_with_same_bounding_box(
     text: str, tokenizer: PreTrainedTokenizer, word_bbox: Tuple[float, float, float, float]
 ) -> Iterable[Token]:
-    token_ids = tokenizer(text, return_attention_mask=False)["input_ids"]
+    token_ids = tokenize_with_leading_space(text, tokenizer)
     tokens = tokenizer.convert_ids_to_tokens(token_ids, skip_special_tokens=True)
     for t, t_id in zip(tokens, token_ids):
         yield Token(text=t, token_id=t_id, bbox=word_bbox)
+
+
+def tokenize_with_leading_space(
+    text: str,
+    tokenizer: PreTrainedTokenizer,
+) -> List[int]:
+    # Always treat words as part of an ongoing text sequence by adding a leading space.
+    return tokenizer(" " + text, return_attention_mask=False)["input_ids"]
 
 
 def build_word_tokens(
