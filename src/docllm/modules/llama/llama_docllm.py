@@ -289,17 +289,6 @@ class LlamaDocLLM(DocLLMLlamaPreTrainedModel):
 
         dtype, device = input_tensor.dtype, input_tensor.device
 
-        # If the attention mask is 3D, i.e. has a shape of (batch_size, sequence_length, sequence_length),
-        # we directly expand it to 4D, i.e. (batch_size, 1, sequence_length, sequence_length).
-        # if is_attention_mask_3d:
-        #     attention_mask = torch.unsqueeze(attention_mask, 1)
-        #     min_dtype = torch.finfo(dtype).min
-        #     padding_mask = attention_mask == 0
-        #     mask_length = attention_mask.shape[-1]
-        #     float_mask = torch.zeros_like(attention_mask, dtype=dtype, device=device)
-        #     float_mask[:, :, :, :mask_length] = float_mask[:, :, :, :mask_length].masked_fill(padding_mask, min_dtype)
-        #     attention_mask = float_mask
-
         sequence_length = input_tensor.shape[1]
         if using_static_cache:
             target_length = past_key_values.get_max_cache_shape()
