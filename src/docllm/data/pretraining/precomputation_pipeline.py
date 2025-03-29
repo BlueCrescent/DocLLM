@@ -11,6 +11,11 @@ from docllm.data.pretraining.pipeline import build_docllm_datapipeline
 
 
 def precompute_data(config: DocLLMPreTrainDataConfig, output_dir: str):
+    for i, data in enumerate(generate_precomputed_data(config)):
+        torch.save(data, os.path.join(output_dir, f"eval_{i}.pt"))
+
+
+def generate_precomputed_data(config: DocLLMPreTrainDataConfig) -> Iterable[List[torch.Tensor]]:
     config = config.model_copy()
     config.batch_size = 1
     data_gen_pipeline = build_docllm_datapipeline(config)
@@ -18,7 +23,7 @@ def precompute_data(config: DocLLMPreTrainDataConfig, output_dir: str):
         if len(dat[0]) == 0:
             logging.warning(f"Skipping empty data {i}...")
             continue
-        torch.save(list(debatch(dat)), os.path.join(output_dir, f"eval_{i}.pt"))
+        yield list(debatch(dat))
 
 
 def debatch(
