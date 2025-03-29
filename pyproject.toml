@@ -5,7 +5,7 @@ requires-python = ">=3.11,<3.13"
 description = "DocLLM implementation"
 dependencies = [
     "torch",
-    "transformers==4.38.2",
+    "transformers==4.46.3",
     "pydantic",
     "sentencepiece",
     "tensorboard",
