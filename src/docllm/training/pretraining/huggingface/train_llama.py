@@ -1,5 +1,6 @@
 import os
-from typing import Dict, Iterable, List, Tuple
+from functools import partial
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -7,17 +8,29 @@ from datasets.iterable_dataset import ExamplesIterable, IterableDataset, Shuffli
 from pydantic import BaseModel
 from transformers import Trainer, TrainingArguments
 from transformers.trainer_utils import get_last_checkpoint
+from zmq import Enum
 
+from docllm.data.pretraining.build_hf_dataset import precompute_dataset
 from docllm.data.pretraining.config import DocLLMPreTrainDataConfig
 from docllm.data.pretraining.pipeline import build_docllm_datapipeline
 from docllm.data.pretraining.precomputation_pipeline import build_precomputed_data_pipeline, precompute_data
+from docllm.data.pretraining.precomputed_epoch_loader import PrecomputedEpoch, collate_as_dict
 from docllm.modules.llama.causal_docllm import CausalLlamaDocLLM
 from docllm.modules.llama.config import DocLLMLlamaConfig
+from docllm.modules.llama.decoder_layer import DocLLMLlamaDecoderLayer
+
+
+class DataFormat(Enum):
+    PIPELINE = "pipeline"
+    DATASET = "dataset"
+    PRECOMPUTED = "precomputed"
 
 
 class LlamaDocLLMTrainerConfig(BaseModel):
     checkpoint: str
     batch_size: int
+    # use_data_pipeline: bool = False
+    data_format: DataFormat
     train_data_dir: str
     eval_data_dir_in: str
     eval_data_dir_out: str
@@ -25,6 +38,11 @@ class LlamaDocLLMTrainerConfig(BaseModel):
     max_steps: int
     resume_from_checkpoint: bool
     eval_steps: int
+    use_fsdp: bool = False
+    use_packing: bool = False
+    max_sequence_length_overwrite: Optional[int] = None
+    vocab_size: int
+    freeze_original_weights: bool = False
 
 
 class LlamaDocLLMTrainer:
@@ -32,42 +50,77 @@ class LlamaDocLLMTrainer:
         self,
         config: LlamaDocLLMTrainerConfig,
     ) -> None:
-        self._config = config.model_copy()
-        if self._config.resume_from_checkpoint:
-            self._config.checkpoint = get_last_checkpoint(self._config.output_dir)
-        self._model_config = DocLLMLlamaConfig.from_pretrained(
-            self._config.checkpoint, additional_training_vocab_size=3
-        )
-        self._model = CausalLlamaDocLLM.from_pretrained(self._config.checkpoint, config=self._model_config)
-        self._build_data_pipelines()
+        self._config: LlamaDocLLMTrainerConfig = config.model_copy()
+        self._prepare_model()
+        self._prepare_data()
         training_args = self._build_training_args()
+        print("Training arguments:\n", training_args)
         self._build_trainer(training_args)
 
     def train(self):
         ckpt = self._config.checkpoint if self._config.resume_from_checkpoint else None
         self._trainer.train(resume_from_checkpoint=ckpt)
 
+    def _prepare_model(self):
+        if self._config.resume_from_checkpoint:
+            self._config.checkpoint = get_last_checkpoint(self._config.output_dir)
+        self._model_config: DocLLMLlamaConfig = DocLLMLlamaConfig.from_pretrained(
+            self._config.checkpoint, additional_training_vocab_size=3, use_cache=False, _attn_implementation="sdpa"
+        )
+        print("Model config:\n", self._model_config)
+        self._model_config.save_pretrained(os.path.join(self._config.output_dir, "model_config"))
+        self._model: CausalLlamaDocLLM = CausalLlamaDocLLM.from_pretrained(
+            self._config.checkpoint, config=self._model_config
+        )
+        if self._config.freeze_original_weights:
+            self._model.set_freeze_llama_layers(True)
+
+    def _prepare_data(self):
+        match self._config.data_format:
+            case DataFormat.PIPELINE:
+                self._build_data_pipelines()
+            case DataFormat.DATASET:
+                self._build_dataset()
+            case DataFormat.PRECOMPUTED:
+                self._build_dataset_from_precomputed()
+            case _:
+                raise ValueError(f"Unknown data format: {self._config.data_format}")
+
+    def _build_dataset_from_precomputed(self):
+        self._train_dataset = PrecomputedEpoch(self._config.train_data_dir, offset_idx=0)
+        self._eval_dataset = PrecomputedEpoch(self._config.eval_data_dir_out, offset_idx=0)
+
+    def _build_dataset(self):
+        data_config = self._build_data_config()
+        self._train_dataset = precompute_dataset(data_config).with_format(type="torch")
+        data_config.directory = self._config.eval_data_dir_in
+        self._eval_dataset = precompute_dataset(data_config).with_format(type="torch")
+
     def _build_data_pipelines(self):
-        data_config = DocLLMPreTrainDataConfig(
+        data_config = self._build_data_config()
+        self._build_train_data(data_config)
+        self._build_eval_data(data_config.model_copy())
+
+    def _build_data_config(self) -> DocLLMPreTrainDataConfig:
+        return DocLLMPreTrainDataConfig(
             batch_size=1,
             drop_last_batch_if_not_full=False,
             shuffle=False,
             use_sharding_filter=False,
-            use_packing=True,
-            max_seq_length=self._model_config.max_position_embeddings,
+            use_packing=self._config.use_packing,
+            max_seq_length=self._config.max_sequence_length_overwrite or self._model_config.max_position_embeddings,
             num_masked_blocks=(0.05, 0.25),
             max_percentage_masked_blocks=0.25,
-            mask_text_token=32002,  # TODO
+            min_num_blocks_available=8,
+            mask_text_token=self._config.vocab_size + 2,
             mask_bbox_token=(0.0, 0.0, 0.0, 0.0),
-            block_start_text_token=32001,  # TODO
-            block_end_text_token=32000,  # TODO
+            block_start_text_token=self._config.vocab_size,
+            block_end_text_token=self._config.vocab_size + 1,
             bos_text_token=self._model_config.bos_token_id,
             bos_bbox_token=None,
             padding_value=0.0,
             directory=self._config.train_data_dir,
         )
-        self._build_train_data(data_config)
-        self._build_eval_data(data_config.model_copy())
 
     def _build_train_data(self, data_config: DocLLMPreTrainDataConfig):
         data_pipeline = build_docllm_datapipeline(data_config)
@@ -92,13 +145,18 @@ class LlamaDocLLMTrainer:
 
     def _build_training_args(self) -> TrainingArguments:
         return TrainingArguments(
-            run_name="llama_docllm_pretraining",
+            run_name="llama_docllm_pretraining_epoch01a",
             do_train=True,
+            bf16=True,
             output_dir=self._config.output_dir,
             resume_from_checkpoint=self._config.resume_from_checkpoint,
             # overwrite_output_dir=False,
-            max_steps=self._config.max_steps,
+            # max_steps=self._config.max_steps,
+            max_steps=len(self._train_dataset) // (4 * self._config.batch_size),
+            # num_train_epochs=1,
             per_device_train_batch_size=self._config.batch_size,
+            auto_find_batch_size=True,  # TODO
+            # gradient_checkpointing=True,  # TODO
             learning_rate=3e-4,
             optim="adamw_torch",
             weight_decay=0.1,
@@ -108,31 +166,49 @@ class LlamaDocLLMTrainer:
             max_grad_norm=1.0,
             lr_scheduler_type="cosine",
             lr_scheduler_kwargs={},
-            warmup_steps=1000,
-            logging_steps=self._config.eval_steps,
+            warmup_steps=50,  # 5000 // (4 * self._config.batch_size),
+            logging_steps=25,  # self._config.eval_steps,
             save_steps=self._config.eval_steps,
-            evaluation_strategy="steps",
+            eval_strategy="steps",
             eval_steps=self._config.eval_steps,
-            save_total_limit=5,
+            save_total_limit=10,
             load_best_model_at_end=True,
             metric_for_best_model="eval_loss",
             greater_is_better=False,
             remove_unused_columns=False,
             label_names=["labels", "loss_mask"],
             seed=42,
-            data_seed=42,
+            data_seed=None,  # 42,  FIXME
             include_tokens_per_second=True,
-            include_num_input_tokens_seen=True,
+            include_num_input_tokens_seen=False,  # FIXME: reactivate when this is merged: https://github.com/huggingface/transformers/pull/34554
             report_to=["tensorboard"],
+            fsdp="full_shard" if self._config.use_fsdp else "",  # full_shard offload auto_wrap",  # FIXME
+            # fsdp_min_num_params=int(1e2),
+            fsdp_config=(
+                {
+                    # "min_num_params": int(1e3),
+                    "transformer_layer_cls_to_wrap": [DocLLMLlamaDecoderLayer.__name__],
+                    # "backward_prefetch": "backward_pre",
+                    # "forward_prefetch": False,
+                    # "limit_all_gathers": False,
+                }
+                if self._config.use_fsdp
+                else {}
+            ),
         )
 
     def _build_trainer(self, training_args: TrainingArguments):
+        collator = (
+            partial(collate_as_dict, padding_value=0.0, additional_col=True)
+            if self._config.data_format == DataFormat.PRECOMPUTED
+            else collate_data
+        )
         self._trainer = Trainer(
             self._model,
             training_args,
             train_dataset=self._train_dataset,
             eval_dataset=self._eval_dataset,
-            data_collator=collate_data,
+            data_collator=collator,
         )
 
 
@@ -147,13 +223,14 @@ def iter_fct(pipeline) -> Iterable[Tuple[int, Dict[str, torch.Tensor]]]:
 
 
 def collate_data(data: List[Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:
-    inputs = [d["input_ids"][0] for d in data]
+    debatch = (lambda x: x[0]) if len(data[0]["input_ids"].shape) == 2 else lambda x: x
+    inputs = [debatch(d["input_ids"]) for d in data]
     input_batch = torch.nn.utils.rnn.pad_sequence(inputs, batch_first=True, padding_value=0)
-    bboxes = [d["input_coordinates"][0] for d in data]
+    bboxes = [debatch(d["input_coordinates"]) for d in data]
     bbox_batch = torch.nn.utils.rnn.pad_sequence(bboxes, batch_first=True, padding_value=0.0)
-    mask = [d["loss_mask"][0] for d in data]
+    mask = [debatch(d["loss_mask"]) for d in data]
     mask_batch = torch.nn.utils.rnn.pad_sequence(mask, batch_first=True, padding_value=False)
-    labels = [d["labels"][0] for d in data]
+    labels = [debatch(d["labels"]) for d in data]
     labels_batch = torch.nn.utils.rnn.pad_sequence(labels, batch_first=True, padding_value=0)
     return {
         "input_ids": input_batch,
