@@ -33,13 +33,6 @@ class SpatialEmbedder(nn.Module):
 
         input_coordinates = self._scale(input_coordinates)
 
-        # embedded = [
-        #     emb(input_coordinates[:, :, i])
-        #     for i, emb in enumerate(
-        #         [self.embed_spatial_x, self.embed_spatial_y, self.embed_spatial_x, self.embed_spatial_y]
-        #         + ([self.embed_spatial_h, self.embed_spatial_w] if self._include_width_height else [])
-        #     )
-        # ]
         embedded = [
             self.embed_x(input_coordinates[:, :, 0]),
             self.embed_y(input_coordinates[:, :, 1]),
