@@ -61,7 +61,7 @@ def collate_as_dict(
     )
     return {
         "input_ids": input_ids,
-        "input_coordinates": bbox,
+        "input_coordinates": bbox.clamp(min=0.0, max=1.0),  # FIXME
         "loss_mask": loss_mask,
         "labels": labels,
         "position_ids": position_ids,

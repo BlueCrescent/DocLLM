@@ -2,25 +2,43 @@ import logging
 import multiprocessing
 import os
 import random
-from typing import Iterable, List, Tuple
+from typing import Iterable, List, Protocol, Tuple
 
 import torch
 
-from docllm.data.pretraining.config import DocLLMPreTrainDataConfig
-from docllm.data.pretraining.masker import DocLLMPretrainingMasker
+
+class SampleBuilder(Protocol):
+    def __call__(
+        self, input_tensors: List[torch.LongTensor], bbox_tensors: List[torch.FloatTensor]
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.BoolTensor, torch.LongTensor]:
+        pass
+
+
+class SampleBuilderFactory(Protocol):
+    def __call__(self) -> SampleBuilder:
+        pass
 
 
 def precompute_epoch_files(
-    directory: str, output_directory: str, config: DocLLMPreTrainDataConfig, num_processes: int
+    directory: str,
+    output_directory: str,
+    max_seq_length: int,
+    num_processes: int,
+    sample_builder_factory: SampleBuilderFactory,
+    start_idx: int = 0,
+    end_idx: int = -1,
 ) -> None:
-    files = list_pt_files(directory)
+    files = sorted(list_pt_files(directory))[start_idx:end_idx]
     random.shuffle(files)
     queue = multiprocessing.Queue()
     for file in files:
         queue.put(file)
 
     workers = [
-        multiprocessing.Process(target=precompute_worker, args=(queue, output_directory, config, f"subset_{i}_file"))
+        multiprocessing.Process(
+            target=precompute_worker,
+            args=(queue, output_directory, max_seq_length, f"subset_{i}_file", sample_builder_factory),
+        )
         for i in range(num_processes)
     ]
     try:
@@ -39,18 +57,24 @@ def precompute_epoch_files(
 
 
 def precompute_worker(
-    queue: multiprocessing.Queue, output_directory: str, config: DocLLMPreTrainDataConfig, prefix: str
+    queue: multiprocessing.Queue,
+    output_directory: str,
+    max_seq_length: int,
+    prefix: str,
+    sample_builder_factory: SampleBuilderFactory,
 ) -> None:
-    precomputer = SubsetPrecomputer(output_directory, config, prefix)
+    precomputer = SubsetPrecomputer(output_directory, max_seq_length, prefix, sample_builder_factory)
     precomputer.process(IterableQueue(queue))
 
 
 class SubsetPrecomputer:
-    def __init__(self, output_directory: str, config: DocLLMPreTrainDataConfig, prefix: str):
+    def __init__(
+        self, output_directory: str, max_seq_length: int, prefix: str, sample_builder_factory: SampleBuilderFactory
+    ):
         self._output_directory = output_directory
-        self._max_sequence_length = config.max_seq_length
+        self._max_sequence_length = max_seq_length
         self._prefix = prefix
-        self._masker = DocLLMPretrainingMasker(config)
+        self._sample_builder: SampleBuilder = sample_builder_factory()
         self._elements = []
         self._total_size = 0
 
@@ -84,7 +108,7 @@ class SubsetPrecomputer:
     ) -> Iterable[Tuple[torch.LongTensor, torch.FloatTensor, torch.BoolTensor, torch.LongTensor]]:
         for input_tensors, bbox_tensors in input_and_bbox_tensors:
             try:
-                yield self._masker(input_tensors, bbox_tensors)
+                yield self._sample_builder(input_tensors, bbox_tensors)
             except ValueError as e:
                 logging.warning(e)
 
