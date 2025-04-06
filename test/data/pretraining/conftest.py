@@ -32,7 +32,7 @@ def multiple_docs_test_data(num_docs: int) -> List[List[Tuple[torch.LongTensor, 
 
 @pytest.fixture
 def input_dir_with_data(
-    multiple_docs_test_data: List[List[Tuple[torch.LongTensor, torch.FloatTensor]]]
+    multiple_docs_test_data: List[List[Tuple[torch.LongTensor, torch.FloatTensor]]],
 ) -> Iterable[str]:
     with TemporaryDirectory() as input_dir:
         for i, data in enumerate(multiple_docs_test_data):

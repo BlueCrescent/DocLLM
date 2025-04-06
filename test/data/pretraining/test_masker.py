@@ -14,7 +14,7 @@ def test_instantiation(docllm_pretrain_masker: DocLLMPretrainingMasker):
     assert isinstance(docllm_pretrain_masker, DocLLMPretrainingMasker)
 
 
-def test_iter_produces_three_tuples(
+def test_produces_four_tuple(
     input_tokens: List[torch.LongTensor],
     bbox_tokens: List[torch.FloatTensor],
     docllm_pretrain_masker: DocLLMPretrainingMasker,

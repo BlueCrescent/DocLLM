@@ -29,7 +29,7 @@ def generate_precomputed_data(config: DocLLMPreTrainDataConfig) -> Iterable[List
 def debatch(
     one_element_batch_sample: (
         Tuple[torch.LongTensor, torch.FloatTensor, torch.BoolTensor, torch.LongTensor] | List[torch.Tensor]
-    )
+    ),
 ) -> Iterable[torch.Tensor]:
     for s in one_element_batch_sample:
         assert s.size(0) == 1

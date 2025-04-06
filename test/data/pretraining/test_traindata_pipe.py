@@ -34,7 +34,7 @@ def test_data(
 @pytest.fixture
 def source_datapipe(test_data: List[List[Tuple[torch.LongTensor, torch.FloatTensor]]]) -> IterDataPipe:
     def split_list(
-        lst: List[Tuple[torch.LongTensor, torch.FloatTensor]]
+        lst: List[Tuple[torch.LongTensor, torch.FloatTensor]],
     ) -> Tuple[List[torch.LongTensor], List[torch.FloatTensor]]:
         l1, l2 = zip(*lst)
         return list(l1), list(l2)

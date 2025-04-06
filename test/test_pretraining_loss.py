@@ -86,7 +86,7 @@ def test_loss_is_zero_with_mask_only_one_at_correct_prediction(
 
 
 def test_masked_result_is_same_as_result_with_ignore_index_labels(
-    loss_inputs: Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+    loss_inputs: Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
 ):
     loss = DocLLMCrossEntropyLoss(ignore_index=-100)
     logits, labels, mask = loss_inputs

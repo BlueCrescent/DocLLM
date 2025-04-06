@@ -26,7 +26,7 @@ def precompute_dataset(config: DocLLMPreTrainDataConfig) -> Dataset:
 
 
 def to_model_input(
-    data: Tuple[torch.LongTensor, torch.FloatTensor, torch.BoolTensor, torch.LongTensor] | List[torch.Tensor]
+    data: Tuple[torch.LongTensor, torch.FloatTensor, torch.BoolTensor, torch.LongTensor] | List[torch.Tensor],
 ) -> Dict[str, torch.Tensor]:
     return {"input_ids": data[0], "input_coordinates": data[1], "loss_mask": data[2], "labels": data[3]}
 

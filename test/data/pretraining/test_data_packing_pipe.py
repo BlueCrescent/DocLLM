@@ -28,14 +28,14 @@ def test_data(
 
 @pytest.fixture
 def min_test_data_sequence_length(
-    test_data: List[Tuple[torch.LongTensor, torch.FloatTensor, torch.BoolTensor, torch.LongTensor]]
+    test_data: List[Tuple[torch.LongTensor, torch.FloatTensor, torch.BoolTensor, torch.LongTensor]],
 ) -> int:
     return min(t.size(0) for t, _, _, _ in test_data)
 
 
 @pytest.fixture
 def source_datapipe(
-    test_data: List[Tuple[torch.LongTensor, torch.FloatTensor, torch.BoolTensor, torch.LongTensor]]
+    test_data: List[Tuple[torch.LongTensor, torch.FloatTensor, torch.BoolTensor, torch.LongTensor]],
 ) -> IterDataPipe:
     pipe = MagicMock(spec=IterDataPipe)
     pipe.__iter__.return_value = test_data

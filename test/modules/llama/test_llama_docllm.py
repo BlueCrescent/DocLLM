@@ -6,7 +6,7 @@ import pytest
 import torch
 from transformers import LlamaModel
 
-from docllm.data.pretraining.precomputed_epoch_loader import compute_packing_attention_mask_and_pos_ids
+from docllm.data.precomputed_epoch_loader import compute_packing_attention_mask_and_pos_ids
 from docllm.modules.llama import DocLLMLlamaConfig
 from docllm.modules.llama.llama_docllm import DocLLMModelOutputWithPast, LlamaDocLLM
 
