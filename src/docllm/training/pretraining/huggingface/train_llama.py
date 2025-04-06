@@ -1,4 +1,5 @@
 import os
+import pickle
 from functools import partial
 from typing import Dict, Iterable, List, Optional, Tuple
 
@@ -6,15 +7,15 @@ import numpy as np
 import torch
 from datasets.iterable_dataset import ExamplesIterable, IterableDataset, ShufflingConfig
 from pydantic import BaseModel
-from transformers import Trainer, TrainingArguments
+from transformers import PreTrainedModel, Trainer, TrainerCallback, TrainerControl, TrainerState, TrainingArguments
 from transformers.trainer_utils import get_last_checkpoint
 from zmq import Enum
 
+from docllm.data.precomputed_epoch_loader import PrecomputedEpoch, collate_as_dict
 from docllm.data.pretraining.build_hf_dataset import precompute_dataset
 from docllm.data.pretraining.config import DocLLMPreTrainDataConfig
 from docllm.data.pretraining.pipeline import build_docllm_datapipeline
 from docllm.data.pretraining.precomputation_pipeline import build_precomputed_data_pipeline, precompute_data
-from docllm.data.pretraining.precomputed_epoch_loader import PrecomputedEpoch, collate_as_dict
 from docllm.modules.llama.causal_docllm import CausalLlamaDocLLM
 from docllm.modules.llama.config import DocLLMLlamaConfig
 from docllm.modules.llama.decoder_layer import DocLLMLlamaDecoderLayer
@@ -29,6 +30,7 @@ class DataFormat(Enum):
 class LlamaDocLLMTrainerConfig(BaseModel):
     checkpoint: str
     batch_size: int
+    num_processes: int = 4
     # use_data_pipeline: bool = False
     data_format: DataFormat
     train_data_dir: str
@@ -36,8 +38,12 @@ class LlamaDocLLMTrainerConfig(BaseModel):
     eval_data_dir_out: str
     output_dir: str
     max_steps: int
+    warmup_steps: Optional[int] = None
+    learning_rate: float = 3e-4
+    min_learning_rate: Optional[float] = None
     resume_from_checkpoint: bool
     eval_steps: int
+    logging_steps: int = 25
     use_fsdp: bool = False
     use_packing: bool = False
     max_sequence_length_overwrite: Optional[int] = None
@@ -152,22 +158,24 @@ class LlamaDocLLMTrainer:
             resume_from_checkpoint=self._config.resume_from_checkpoint,
             # overwrite_output_dir=False,
             # max_steps=self._config.max_steps,
-            max_steps=len(self._train_dataset) // (4 * self._config.batch_size),
+            max_steps=len(self._train_dataset) // (self._config.num_processes * self._config.batch_size),
             # num_train_epochs=1,
             per_device_train_batch_size=self._config.batch_size,
             auto_find_batch_size=True,  # TODO
             # gradient_checkpointing=True,  # TODO
-            learning_rate=3e-4,
+            learning_rate=self._config.learning_rate,
             optim="adamw_torch",
             weight_decay=0.1,
             adam_beta1=0.9,
             adam_beta2=0.95,
             adam_epsilon=1e-6,
             max_grad_norm=1.0,
-            lr_scheduler_type="cosine",
-            lr_scheduler_kwargs={},
-            warmup_steps=50,  # 5000 // (4 * self._config.batch_size),
-            logging_steps=25,  # self._config.eval_steps,
+            lr_scheduler_type="cosine" if self._config.min_learning_rate is None else "cosine_with_min_lr",
+            lr_scheduler_kwargs=(
+                {} if self._config.min_learning_rate is None else {"min_lr": self._config.min_learning_rate}
+            ),
+            warmup_steps=self._config.warmup_steps or 100,  # 5000 // (4 * self._config.batch_size),
+            logging_steps=self._config.logging_steps,
             save_steps=self._config.eval_steps,
             eval_strategy="steps",
             eval_steps=self._config.eval_steps,
@@ -209,6 +217,7 @@ class LlamaDocLLMTrainer:
             train_dataset=self._train_dataset,
             eval_dataset=self._eval_dataset,
             data_collator=collator,
+            callbacks=[SkipNaNGradientsCallback()],
         )
 
 
@@ -238,3 +247,193 @@ def collate_data(data: List[Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]
         "loss_mask": mask_batch,
         "labels": labels_batch,
     }
+
+
+# class CustomTrainer(Trainer):
+#     def on_step(self, args, state, control, **kwargs):
+#         # Compute the gradient norm
+#         grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1e6, norm_type=2)
+
+#         # Check for NaN in the gradient norm
+#         if grad_norm.isnan():
+#             # Retrieve the current batch
+#             dataloader = self.get_train_dataloader()
+#             current_batch = next(iter(dataloader))
+
+#             # Log information
+#             print(f"Gradient norm is NaN at step {state.global_step}")
+#             print(f"Batch index: {state.global_step}")
+#             print(f"Batch content: {current_batch}")
+
+#             # Assuming you have access to the dataset indices
+#             batch_indices = current_batch["input_ids"]  # or the specific key used in your dataset
+#             samples = [self.train_dataset[i] for i in batch_indices]
+#             print(f"Batch samples: {samples}")
+
+#         super().on_step(args, state, control, **kwargs)
+
+
+# class GradientNormCallback(TrainerCallback):
+#     def on_log(self, args, state, control, logs=None, **kwargs):
+#         # _ = logs.pop("total_flos", None)
+#         if state.is_local_process_zero:
+#             # Get the logged gradient norm and loss
+#             grad_norm = logs.get("gradient_norm", None)
+#             loss = logs.get("loss", None)
+
+#             # Check if gradient norm is NaN
+#             if grad_norm is not None and torch.isnan(torch.tensor(grad_norm)):
+#                 print(logs)
+#                 # Retrieve the current batch
+
+#                 # Log pertinent information
+#                 print(f"Gradient norm is NaN at step {state.global_step}")
+#                 print(f"Loss: {loss}")
+#                 print(f"Batch index: {state.global_step}")
+#                 if dataloader := kwargs.get("train_dataloader", None):
+#                     current_batch = next(iter(dataloader))
+#                     print(f"Batch content: {current_batch}")
+
+#                 # Assuming you have access to the dataset indices
+#                 # batch_indices = current_batch['input_ids']  # or the specific key used in your dataset
+#                 # samples = [self.train_dataset[i] for i in batch_indices]
+#                 # print(f"Batch samples: {samples}")
+#             # print(logs)
+
+
+class SkipNaNGradientsCallback(TrainerCallback):
+    # def on_step_begin(self, args, state: TrainerState, control: TrainerControl, **kwargs):
+    #     local_rank = int(os.environ.get("LOCAL_RANK", -1))
+    #     print(f">>>>>({local_rank}) Step: {state.global_step}", flush=True)
+
+    def on_pre_optimizer_step(self, args, state: TrainerState, control: TrainerControl, **kwargs):
+        model: PreTrainedModel | torch.nn.Module | None = kwargs.get("model", None)
+        if model is None:
+            print("Model not available in on_pre_optimizer_step.")
+            return
+        for name, param in model.named_parameters():
+            if param.grad is not None:
+                grad_norm = param.grad.data.norm()
+                if torch.isnan(grad_norm):
+                    local_rank = int(os.environ.get("LOCAL_RANK", -1))
+                    print(
+                        f">>>>>({local_rank}) NaN gradient detected at "
+                        f"{state.global_step} in {name}. Zeroing all gradients...",
+                        flush=True,
+                    )
+                    optimizer: torch.optim.Optimizer | None = kwargs.get("optimizer", None)
+                    if optimizer is not None:
+                        print(f">>>>>({local_rank}) Zeroing gradients for optimizer.", flush=True)
+                        optimizer.zero_grad()
+                    else:
+                        self.zero_grads(model, local_rank)
+                    break
+
+    def zero_grads(self, model: torch.nn.Module, local_rank: int = -1):
+        """
+        Zero out all gradients in the model.
+        """
+        print(f">>>>>({local_rank}) Zeroing gradients for all model parameters.", flush=True)
+        for name, param in model.named_parameters():
+            if param.grad is not None:
+                param.grad.data.zero_()
+
+
+class NaNGradientDetectionCallback(TrainerCallback):
+    def __init__(self, log_file="", output_dir=""):
+        self.log_file = log_file
+        self.output_dir = output_dir
+        self.batch = None
+        self.batch_index = None
+        self.loss = None
+        self.stop_training = False
+        self.substep_counter = 0
+
+    def on_train_begin(self, args, state, control, **kwargs):
+        local_rank = int(os.environ.get("LOCAL_RANK", -1))
+        print(f"Local Rank: {local_rank}")
+        if local_rank == 0:
+            world_size = int(os.environ.get("WORLD_SIZE", -1))
+            print(f"World Size: {world_size}")
+
+    def on_step_begin(self, args, state: TrainerState, control: TrainerControl, **kwargs):
+        self.batch_index = state.global_step
+        # self.batch = kwargs.get("batch")
+        print(f"Batch index: {self.batch_index}", flush=True)
+        print(f"Substep counter: {self.substep_counter}", flush=True)
+        local_rank = int(os.environ.get("LOCAL_RANK", -1))
+        print(f"Local Rank: {local_rank}")
+        self.substep_counter = 0
+
+    def on_substep_end(self, args, state: TrainerState, control: TrainerControl, **kwargs):
+        self.substep_counter += 1
+
+    def on_step_end(self, args, state: TrainerState, control: TrainerControl, **kwargs):
+        self.loss = kwargs.get("loss")
+
+    def on_pre_optimizer_step(self, args, state: TrainerState, control: TrainerControl, **kwargs):
+        model = kwargs.get("model", None)
+        # optimizer = kwargs.get("optimizer", None)
+        # if not state.is_local_process_zero:
+        #     return
+        local_rank = int(os.environ.get("LOCAL_RANK", -1))
+        if model is None:
+            print(f"\n\n>>>>>({local_rank}) Model not available in on_pre_optimizer_step.", flush=True)
+            return
+        for name, param in model.named_parameters():
+            if param.grad is not None:
+                grad_norm = param.grad.data.norm()
+                if torch.isnan(grad_norm):
+                    print(f"\n\n>>>>>on_pre_optimizer_step({local_rank})<<<<<\n\n")
+                    # with open(self.log_file, "a") as f:
+                    print(f"NaN gradient detected at batch index {self.batch_index}\n", flush=True)
+                    print(f"Loss: {self.loss}\n", flush=True)
+                    # print(f"Batch content: {self.batch}\n", flush=True)
+                    # Sauvegarde le batch en tant que fichier pickle
+                    # try:
+                    #     torch.save(self.batch, f"debug_batch_{self.batch_index}.pt")
+                    # except Exception as e:
+                    #     print(f"Error saving batch: {e}", flush=True)
+                    # with open(f"debug_batch_{self.batch_index}.pkl", "wb") as f:
+                    #     pickle.dump(self.batch, f)
+                    # Sauvegarde un checkpoint du modèle et de l'optimiseur
+                    # output_dir = f"checkpoint_nan_grad_batch_{self.batch_index}"
+                    # model.save_pretrained(output_dir)
+                    # torch.save(optimizer.state_dict(), f"{output_dir}/optimizer.pt")
+                    # Termine l'entraînement
+                    # control.should_training_stop = True
+                    self.stop_training = True
+                    break
+
+    def on_log(self, args, state: TrainerState, control: TrainerControl, logs=None, **kwargs):
+        # _ = logs.pop("total_flos", None)
+        # if state.is_local_process_zero:
+        # Get the logged gradient norm and loss
+        grad_norm = logs.get("gradient_norm", None)
+        loss = logs.get("loss", None)
+        local_rank = int(os.environ.get("LOCAL_RANK", -1))
+
+        # Check if gradient norm is NaN
+        grad_is_nan = grad_norm is not None and torch.isnan(torch.tensor(grad_norm))
+        if grad_is_nan or self.stop_training:
+            print(f"\n\n>>>>>on_log({local_rank})<<<<<\n\n")
+            print(f"({local_rank}){grad_is_nan=}")
+            print(f"logs({local_rank}):\n")
+            print(logs, flush=True)
+            print(f"\n\nstate({local_rank}):\n")
+            print(state, flush=True)
+            print("\n\n")
+            # Retrieve the current batch
+
+            # Log pertinent information
+            print(f"({local_rank})Gradient norm is NaN at step {state.global_step}")
+            print(f"({local_rank})Loss: {loss}")
+            print(f"({local_rank})Batch index: {state.global_step}", flush=True)
+            if dataloader := kwargs.get("train_dataloader", None):
+                current_batch = next(iter(dataloader))
+                print(f"({local_rank})Batch content: {current_batch}", flush=True)
+                try:
+                    torch.save(current_batch, f"debug{local_rank}_batch_{self.batch_index}.pt")
+                except Exception as e:
+                    print(f"({local_rank})Error saving batch: {e}", flush=True)
+            control.should_training_stop = True
