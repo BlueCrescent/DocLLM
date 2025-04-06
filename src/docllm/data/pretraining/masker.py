@@ -17,7 +17,7 @@ class DocLLMPretrainingMasker:
         self._block_start_text_token = torch.tensor([self._config.block_start_text_token])
         self._block_end_text_token = torch.tensor([self._config.block_end_text_token])
         self._bos_text_token = [torch.tensor([self._config.bos_text_token])] if self._config.bos_text_token else []
-        self._bos_bbox_token = [torch.tensor([self._config.bos_bbox_token])] if self._config.bos_bbox_token else []
+        self._bos_bbox_token = [torch.tensor([self._config.bos_bbox_token])] if self._config.bos_text_token else []
 
     def __call__(
         self, input_tensors: List[torch.LongTensor], bbox_tensors: List[torch.FloatTensor]
@@ -26,7 +26,7 @@ class DocLLMPretrainingMasker:
         if num_blocks < self._min_num_blocks_available:
             raise ValueError(
                 f"Number of blocks ({num_blocks}) is less than the minimum "
-                f"number of blocks available ({self._min_num_blocks_available})."
+                f"number of blocks required ({self._min_num_blocks_available})."
             )
         num_masks = self._get_valid_nun_masks(num_blocks)
         mask_indices = self._get_mask_indices(num_blocks, num_masks)
